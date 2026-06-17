@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="NMS Bahrain BookX icon">
+  <rect width="512" height="512" rx="112" fill="#0b1f4d"/>
+  <rect x="128" y="120" width="174" height="272" rx="28" fill="#ffffff"/>
+  <rect x="204" y="120" width="181" height="272" rx="28" fill="#d7e7ff"/>
+  <path d="M204 144v240" stroke="#0b1f4d" stroke-width="16" stroke-linecap="round"/>
+  <path d="M155 192h110M155 240h110M242 192h96M242 240h96M242 288h75" stroke="#0b1f4d" stroke-width="16" stroke-linecap="round"/>
+  <path d="M139 410h234" stroke="#f7c948" stroke-width="22" stroke-linecap="round"/>
+</svg>
