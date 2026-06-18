@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaBookOpen, FaFilter, FaSearch } from "react-icons/fa";
+import { FaBookOpen, FaCheckCircle, FaFilter, FaGraduationCap, FaLayerGroup, FaSearch } from "react-icons/fa";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { DEMO_BOOKS } from "../data/DemoData";
@@ -120,12 +120,13 @@ function Find() {
           <article className="compact-book-card" key={book.id}>
             <div className="book-thumb">
               {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} /> : <FaBookOpen />}
+              <span className={`mini-status ${book.status}`}><FaCheckCircle aria-hidden="true" /></span>
             </div>
             <div>
               <h2>{book.title}</h2>
               <div className="tag-row">
-                <span>{book.subject}</span>
-                <span>Grade {book.grade}</span>
+                <span><FaLayerGroup aria-hidden="true" /> {book.subject}</span>
+                <span><FaGraduationCap aria-hidden="true" /> Grade {book.grade}</span>
                 <span>{book.condition}</span>
                 <span className={`status-pill ${book.status}`}>{book.status}</span>
               </div>

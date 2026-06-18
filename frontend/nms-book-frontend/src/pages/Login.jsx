@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FaBookOpen } from "react-icons/fa";
+import { FaBookOpen, FaShieldAlt, FaUserGraduate } from "react-icons/fa";
 import { useUser } from "../context/UserContext";
 import { normalizeEmail, validateLoginForm } from "../utils/validation";
 
@@ -36,6 +36,7 @@ function Login({ onRegisterClick }) {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <div className="auth-kicker"><FaUserGraduate /> Student book exchange</div>
         <div className="logo-circle">
           <FaBookOpen />
         </div>
@@ -47,8 +48,8 @@ function Login({ onRegisterClick }) {
         </p>
 
         <div className="notice-box">
-          <p>Only NMS Bahrain students are allowed.</p>
-          <p>Only school syllabus books are permitted.</p>
+          <p><FaShieldAlt aria-hidden="true" /> Only NMS Bahrain students are allowed.</p>
+          <p><FaBookOpen aria-hidden="true" /> Only school syllabus books are permitted.</p>
         </div>
 
         <form autoComplete="off" data-form-type="other" onSubmit={handleLogin}>

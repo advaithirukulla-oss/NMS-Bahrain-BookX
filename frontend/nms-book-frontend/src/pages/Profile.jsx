@@ -79,7 +79,12 @@ function Profile({ notificationCount, onNavigate }) {
     <div className="page profile-page">
       <header className="profile-header">
         <FaUserCircle className="profile-avatar" aria-hidden="true" />
-        <div><p className="eyebrow">NMS Bahrain BookX</p><h1>{profile.name}</h1><p>{demoMode ? "Demo Student" : profile.email}</p></div>
+        <div>
+          <p className="eyebrow">NMS Bahrain BookX</p>
+          <h1>{profile.name}</h1>
+          <p>{demoMode ? "Demo Student" : profile.email}</p>
+          <span className="profile-hero-chip">Grade {profile.grade} | Section {profile.section}</span>
+        </div>
       </header>
 
       <section className="daily-quote-card" aria-label="Daily book quote">

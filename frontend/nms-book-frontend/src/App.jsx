@@ -30,6 +30,7 @@ const NAV_ITEMS = [
 function PageFallback() {
   return (
     <div className="page" aria-live="polite">
+      <p className="loading-label">Loading NMS Bahrain BookX...</p>
       <div className="skeleton-header">
         <span />
         <div>

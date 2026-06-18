@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FaBookOpen, FaSyncAlt } from "react-icons/fa";
+import { FaBookOpen, FaCheckCircle, FaGraduationCap, FaLayerGroup, FaSyncAlt, FaTag } from "react-icons/fa";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { DEMO_BOOKS } from "../data/DemoData";
@@ -93,13 +93,16 @@ function Take() {
           <div className="book-card" key={book.id}>
             <div className="book-image-placeholder">
               {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} /> : <FaBookOpen aria-hidden="true" />}
+              <span className={`cover-status ${book.status}`}><FaCheckCircle aria-hidden="true" /> {book.status}</span>
             </div>
 
-            <h2>{book.title}</h2>
+            <div className="book-card-copy">
+              <h2>{book.title}</h2>
+              <p className="book-meta-line"><FaTag aria-hidden="true" /> {book.condition || "Good condition"}</p>
+            </div>
             <div className="tag-row">
-              <span>{book.subject}</span>
-              <span>Grade {book.grade}</span>
-              <span>{book.condition}</span>
+              <span><FaLayerGroup aria-hidden="true" /> {book.subject}</span>
+              <span><FaGraduationCap aria-hidden="true" /> Grade {book.grade}</span>
               <span className={`status-pill ${book.status}`}>{book.status}</span>
             </div>
 
@@ -108,7 +111,7 @@ function Take() {
             </p>
 
             <button
-              className="primary-btn"
+              className="primary-btn request-book-btn"
               type="button"
               disabled={book.status === "reserved" || requestingBookId === book.id}
               onClick={() => requestBook(book.id)}

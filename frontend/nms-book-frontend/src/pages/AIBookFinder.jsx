@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaBookOpen, FaPaperPlane, FaRobot, FaTimes } from "react-icons/fa";
+import { FaBookOpen, FaBolt, FaMagic, FaPaperPlane, FaRobot, FaTimes } from "react-icons/fa";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { DEMO_BOOKS } from "../data/DemoData";
@@ -91,13 +91,14 @@ function AIBookFinder({ onBack }) {
     <div className="ai-page">
       <header className="ai-header">
         <div className="ai-avatar"><FaRobot /></div>
-        <div><strong>AI Book Finder</strong><span>Rule-based matching | no external AI</span></div>
+        <div><strong>AI Book Finder</strong><span><FaMagic aria-hidden="true" /> Smart syllabus matching</span></div>
         <button type="button" onClick={onBack} aria-label="Close AI Book Finder"><FaTimes /></button>
       </header>
 
       <main className="ai-thread">
-        <div className="assistant-message">
-          Hi! Tell me the title, subject, or grade you need. I will match your request with available books.
+        <div className="assistant-message ai-bubble-with-icon">
+          <span className="assistant-badge"><FaRobot aria-hidden="true" /></span>
+          <span>Hi! Tell me the title, subject, or grade you need. I will match your request with available books.</span>
         </div>
 
         {!submittedQuery && (
@@ -109,7 +110,7 @@ function AIBookFinder({ onBack }) {
         )}
 
         {submittedQuery && <div className="user-message">{submittedQuery}</div>}
-        {isLoading && <div className="assistant-message">Checking the available books...</div>}
+        {isLoading && <div className="assistant-message ai-loading"><span /><span /><span /> Checking the available books...</div>}
         {error && <div className="assistant-message error">{error}</div>}
         {submittedQuery && !isLoading && matches.length === 0 && (
           <div className="assistant-message">I could not find a close match. Try adding a subject, grade, or title.</div>
@@ -125,7 +126,7 @@ function AIBookFinder({ onBack }) {
             <div>
               <h2>{book.title}</h2>
               <p>{book.subject} | Grade {book.grade}</p>
-              <strong>Why it matches:</strong>
+              <strong><FaBolt aria-hidden="true" /> Why it matches:</strong>
               <span>{reasons.length ? reasons.join(", ") : "title or subject keywords match your request"}.</span>
             </div>
           </article>
