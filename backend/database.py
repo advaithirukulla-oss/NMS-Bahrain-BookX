@@ -13,8 +13,11 @@ if load_dotenv:
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-if DATABASE_URL and DATABASE_URL.startswith("mysql://"):
-    DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
+if DATABASE_URL:
+    for mysql_scheme in ("mysql://", "mysql+mysqldb://"):
+        if DATABASE_URL.startswith(mysql_scheme):
+            DATABASE_URL = DATABASE_URL.replace(mysql_scheme, "mysql+pymysql://", 1)
+            break
 
 if not DATABASE_URL:
     mysql_user = os.getenv("MYSQL_USER")
