@@ -1,4 +1,4 @@
-const CACHE_NAME = "nms-bookx-static-v1";
+const CACHE_NAME = "bookspins-static-v2";
 const STATIC_ASSETS = ["/", "/manifest.json", "/favicon.svg", "/pwa-192.svg", "/pwa-512.svg"];
 
 self.addEventListener("install", (event) => {

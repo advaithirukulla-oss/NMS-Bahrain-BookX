@@ -64,7 +64,7 @@ function Register({ onLoginClick }) {
         <h1>Create Account</h1>
 
         <p className="auth-subtitle">
-          Join NMS Bahrain BookX
+          Join BookSpins
         </p>
 
         <form autoComplete="off" data-form-type="other" onSubmit={handleRegister}>

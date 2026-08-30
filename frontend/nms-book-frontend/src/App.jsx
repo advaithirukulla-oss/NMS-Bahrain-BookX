@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { FaUser, FaBookOpen, FaPlusCircle, FaSearch, FaComments } from "react-icons/fa";
+import { FaUser, FaBookOpen, FaPlusCircle, FaSearch, FaComments, FaCircle } from "react-icons/fa";
 import API from "./api/api";
 import { useUser } from "./context/UserContext";
 import { getDemoNotifications } from "./data/DemoData";
@@ -30,7 +30,7 @@ const NAV_ITEMS = [
 function PageFallback() {
   return (
     <div className="page" aria-live="polite">
-      <p className="loading-label">Loading NMS Bahrain BookX...</p>
+      <p className="loading-label">Loading BookSpins...</p>
       <div className="skeleton-header">
         <span />
         <div>
@@ -112,6 +112,13 @@ function App() {
 
   return (
     <div className="app">
+      <header className="app-topbar">
+        <button className="brand-lockup" type="button" onClick={() => navigate("profile")} aria-label="Go to BookSpins dashboard">
+          <span className="brand-mark"><FaBookOpen aria-hidden="true" /></span>
+          <span>BookSpins</span>
+        </button>
+        <span className="app-status"><FaCircle aria-hidden="true" /> Student exchange</span>
+      </header>
       <main className="page-content">
         <Suspense fallback={<PageFallback />}>{page}</Suspense>
       </main>

@@ -41,7 +41,7 @@ function Login({ onRegisterClick }) {
           <FaBookOpen />
         </div>
 
-        <h1>NMS Bahrain BookX</h1>
+        <h1>BookSpins</h1>
 
         <p className="auth-subtitle">
           Share, find, and request school syllabus books.

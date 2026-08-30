@@ -41,7 +41,7 @@ except ImportError:
 if load_dotenv:
     load_dotenv()
 
-APP_NAME = os.getenv("APP_NAME", "NMS Bahrain BookX API")
+APP_NAME = os.getenv("APP_NAME", "BookSpins API")
 APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -63,7 +63,7 @@ logger = logging.getLogger("nms-bookx")
 
 app = FastAPI(
     title=APP_NAME,
-    description="A school book exchange platform for NMS Bahrain students.",
+    description="BookSpins is the school book exchange platform for NMS Bahrain students.",
     version=APP_VERSION,
     docs_url="/docs" if ENABLE_DOCS else None,
     redoc_url="/redoc" if ENABLE_DOCS else None,

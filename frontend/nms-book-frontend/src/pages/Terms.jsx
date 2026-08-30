@@ -19,7 +19,7 @@ function Terms({ onBack }) {
       </header>
 
       <section className="terms-card">
-        <p>NMS Bahrain BookX is a student-only space for sharing school books safely and fairly.</p>
+        <p>BookSpins is a student-only space for sharing school books safely and fairly.</p>
         <div className="rules-list">
           {RULES.map((rule) => (
             <div className="rule-row" key={rule}><FaCheckCircle aria-hidden="true" /><span>{rule}</span></div>

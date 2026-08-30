@@ -1,0 +1,23 @@
+# Environment configuration and secrets
+.env
+.env.*
+!.env.example
+
+# JavaScript dependencies and builds
+node_modules/
+dist/
+build/
+
+# Python runtime and local database files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+
+# Runtime-uploaded content must use managed object storage in production
+backend/uploads/
+
+# Local tooling
+.DS_Store
+Thumbs.db

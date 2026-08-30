@@ -1,7 +1,7 @@
 {
-  "name": "NMS Bahrain BookX",
-  "short_name": "BookX",
-  "description": "A student book exchange app for NMS Bahrain.",
+  "name": "BookSpins",
+  "short_name": "BookSpins",
+  "description": "BookSpins is the student book exchange for NMS Bahrain.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FaBookOpen, FaImage, FaPlusCircle } from "react-icons/fa";
+import { useEffect, useRef, useState } from "react";
+import { FaCloudUploadAlt, FaImage, FaPlusCircle, FaTimes } from "react-icons/fa";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { validateBookForm } from "../utils/validation";
@@ -15,9 +15,22 @@ function Give() {
   const [isSyllabusBook, setIsSyllabusBook] = useState(true);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
 
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+  }, [imagePreview]);
+
+  const clearImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const resetForm = () => {
     setTitle("");
@@ -26,33 +39,38 @@ function Give() {
     setCondition("Good");
     setDescription("");
     setIsSyllabusBook(true);
-    setImageFile(null);
-    setImagePreview("");
+    clearImage();
   };
 
-  const selectImage = (event) => {
-    const file = event.target.files?.[0];
+  const setSelectedImage = (file) => {
     if (!file) {
-      setImageFile(null);
-      setImagePreview("");
       return;
     }
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setMessage("Please choose a JPG, PNG, or WEBP image.");
-      event.target.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       setMessage("Book image must be 5MB or smaller.");
-      event.target.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setMessage("");
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+  };
+
+  const selectImage = (event) => setSelectedImage(event.target.files?.[0]);
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setIsDragging(false);
+    setSelectedImage(event.dataTransfer.files?.[0]);
   };
 
   const postBook = async (event) => {
@@ -116,17 +134,33 @@ function Give() {
         </p>
       )}
 
-      <form className="form-card" autoComplete="off" onSubmit={postBook}>
-        <label className="image-upload-field">
-          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={selectImage} />
-          <span className="image-preview-frame">
-            {imagePreview ? <img src={imagePreview} alt="Selected book cover preview" /> : <FaBookOpen aria-hidden="true" />}
-          </span>
-          <span>
-            <strong><FaImage aria-hidden="true" /> Add book cover</strong>
-            <small>JPG, PNG, or WEBP up to 5MB</small>
-          </span>
-        </label>
+      <form className="form-card give-form" autoComplete="off" onSubmit={postBook}>
+        <section className="upload-section" aria-labelledby="book-image-label">
+          <div className="field-heading"><span id="book-image-label">Book photo</span><small>Optional, but helps students find it faster</small></div>
+          <div
+            className={`image-upload-field ${isDragging ? "is-dragging" : ""} ${imagePreview ? "has-image" : ""}`}
+            onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
+            onDragOver={(event) => event.preventDefault()}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+          >
+            <input ref={fileInputRef} id="book-image" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectImage} />
+            {imagePreview ? (
+              <>
+                <span className="image-preview-frame"><img src={imagePreview} alt="Selected book cover preview" /></span>
+                <span className="upload-copy"><strong><FaImage aria-hidden="true" /> {imageFile.name}</strong><small>{Math.ceil(imageFile.size / 1024)} KB · ready to upload</small></span>
+                <div className="image-actions"><label htmlFor="book-image">Replace</label><button type="button" onClick={clearImage}><FaTimes aria-hidden="true" /> Remove</button></div>
+              </>
+            ) : (
+              <label htmlFor="book-image" className="empty-upload-copy">
+                <span className="upload-icon"><FaCloudUploadAlt aria-hidden="true" /></span>
+                <strong>Add a real photo of the book</strong>
+                <small>Tap to choose a photo, or drag one here on desktop</small>
+                <em>JPG, PNG, or WEBP · max 5 MB</em>
+              </label>
+            )}
+          </div>
+        </section>
 
         <input
           type="text"

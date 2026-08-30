@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FaBookOpen, FaCheckCircle, FaGraduationCap, FaLayerGroup, FaSyncAlt, FaTag } from "react-icons/fa";
+import { FaBookOpen, FaCheckCircle, FaExpandAlt, FaGraduationCap, FaLayerGroup, FaSyncAlt, FaTag, FaTimes } from "react-icons/fa";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { DEMO_BOOKS } from "../data/DemoData";
@@ -13,6 +13,7 @@ function Take() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [requestingBookId, setRequestingBookId] = useState(null);
+  const [selectedBook, setSelectedBook] = useState(null);
 
   const loadBooks = useCallback(async () => {
     setIsLoading(true);
@@ -91,10 +92,11 @@ function Take() {
       <div className="book-list" aria-live="polite">
         {books.map((book) => (
           <div className="book-card" key={book.id}>
-            <div className="book-image-placeholder">
+            <button className="book-image-placeholder image-viewer-trigger" type="button" onClick={() => setSelectedBook(book)} aria-label={`View ${book.title} details`}>
               {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} /> : <FaBookOpen aria-hidden="true" />}
               <span className={`cover-status ${book.status}`}><FaCheckCircle aria-hidden="true" /> {book.status}</span>
-            </div>
+              <span className="expand-image"><FaExpandAlt aria-hidden="true" /> View</span>
+            </button>
 
             <div className="book-card-copy">
               <h2>{book.title}</h2>
@@ -121,6 +123,17 @@ function Take() {
           </div>
         ))}
       </div>
+      {selectedBook && (
+        <div className="image-dialog-backdrop" role="presentation" onMouseDown={() => setSelectedBook(null)}>
+          <section className="image-dialog" role="dialog" aria-modal="true" aria-label={`${selectedBook.title} details`} onMouseDown={(event) => event.stopPropagation()}>
+            <button className="dialog-close" type="button" onClick={() => setSelectedBook(null)} aria-label="Close book details"><FaTimes /></button>
+            <div className="dialog-image">
+              {selectedBook.image_url ? <img src={getBookImageUrl(selectedBook.image_url)} alt={`${selectedBook.title} cover`} /> : <FaBookOpen aria-hidden="true" />}
+            </div>
+            <div className="dialog-copy"><h2>{selectedBook.title}</h2><p>{selectedBook.subject} · Grade {selectedBook.grade} · {selectedBook.condition || "Good condition"}</p><p>{selectedBook.description}</p></div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
