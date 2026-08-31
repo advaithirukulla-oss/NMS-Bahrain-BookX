@@ -34,6 +34,13 @@ def create_user(db: Session, user_data):
 
     return new_user
 
+
+def update_user_grade(db: Session, user: User, grade: str):
+    user.grade = grade
+    db.commit()
+    db.refresh(user)
+    return user
+
 def create_book(db: Session, book_data):
 
     new_book = Book(

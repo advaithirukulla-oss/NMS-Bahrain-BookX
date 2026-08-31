@@ -704,6 +704,50 @@ textarea:focus-visible {
   margin-top: 6px;
 }
 
+.grade-edit-button,
+.grade-edit-actions button {
+  width: auto;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border: 1px solid rgba(8, 47, 99, 0.2);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.grade-edit-control select {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px;
+  border: 1px solid rgba(8, 47, 99, 0.25);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.grade-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.grade-edit-actions button:first-child {
+  background: var(--primary);
+  color: #fff;
+}
+
+.grade-message {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.grade-message.success { color: #0b6b3a; }
+.grade-message.error { color: #b42318; }
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

@@ -45,6 +45,15 @@ class UserLogin(BaseModel):
         return str(value).strip().lower()
 
 
+class UserGradeUpdate(BaseModel):
+    grade: str
+
+    @field_validator("grade")
+    @classmethod
+    def validate_grade(cls, value: str):
+        return _validate_grade(value)
+
+
 class BookCreate(BaseModel):
     title: str = Field(min_length=2, max_length=150)
     subject: str = Field(min_length=2, max_length=100)

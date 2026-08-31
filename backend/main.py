@@ -18,6 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from schemas import (
     UserCreate,
     UserLogin,
+    UserGradeUpdate,
     BookCreate,
     BookRequestCreate,
     BookRequestUpdate,
@@ -77,6 +78,17 @@ allowed_origins = [
     ).split(",")
     if origin.strip()
 ]
+
+# Keep the production origins available even if an environment variable was
+# accidentally left on its local-development default.  Extra origins can still
+# be supplied through CORS_ORIGINS.
+for origin in (
+    "https://bookspins.com",
+    "https://www.bookspins.com",
+    "https://bookspins-frontend.onrender.com",
+):
+    if origin not in allowed_origins:
+        allowed_origins.append(origin)
 
 frontend_url = os.getenv("FRONTEND_URL", "").strip()
 if frontend_url and frontend_url not in allowed_origins:
@@ -229,6 +241,30 @@ def get_current_admin(
 
     if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required.")
+
+    return user
+
+
+def get_current_user(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required.")
+
+    try:
+        payload = jwt.decode(
+            authorization.removeprefix("Bearer ").strip(),
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired session.")
+
+    email = payload.get("sub")
+    user = crud.get_user_by_email(db, email) if email else None
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired session.")
 
     return user
 
@@ -709,6 +745,35 @@ def admin_stats(
         "approved_requests": db.query(models.BookRequest).filter(
             models.BookRequest.status == "approved"
         ).count()
+    }
+
+
+@app.patch("/profile/{user_id}/grade")
+def update_profile_grade(
+    user_id: int,
+    grade_update: UserGradeUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.id != user_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only change your own grade.")
+
+    user = crud.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    updated_user = crud.update_user_grade(db, user, grade_update.grade)
+    return {
+        "message": "Grade updated successfully.",
+        "user": {
+            "id": updated_user.id,
+            "name": updated_user.name,
+            "email": updated_user.email,
+            "grade": updated_user.grade,
+            "section": updated_user.section,
+            "role": updated_user.role,
+            "trust_points": updated_user.trust_points,
+        },
     }
 
 @app.delete("/requests/{request_id}")
