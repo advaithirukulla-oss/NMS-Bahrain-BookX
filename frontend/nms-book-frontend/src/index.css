@@ -704,8 +704,8 @@ textarea:focus-visible {
   margin-top: 6px;
 }
 
-.grade-edit-button,
-.grade-edit-actions button {
+.profile-edit-button,
+.profile-edit-actions button {
   width: auto;
   margin-top: 10px;
   padding: 7px 10px;
@@ -719,34 +719,48 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
-.grade-edit-control select {
+.profile-edit-button {
   width: 100%;
-  margin-top: 8px;
-  padding: 9px;
-  border: 1px solid rgba(8, 47, 99, 0.25);
-  border-radius: 10px;
-  background: #fff;
-  color: var(--ink);
-}
-
-.grade-edit-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.grade-edit-actions button:first-child {
+  margin: -6px 0 10px;
+  padding: 11px 14px;
   background: var(--primary);
   color: #fff;
 }
 
-.grade-message {
+.profile-message {
   margin: 8px 0 0;
   font-size: 12px;
   line-height: 1.35;
 }
 
-.grade-message.success { color: #0b6b3a; }
-.grade-message.error { color: #b42318; }
+.profile-message.success { color: #0b6b3a; }
+.profile-message.error { color: #b42318; }
+
+.profile-edit-backdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 47, 99, 0.48);
+}
+
+.profile-edit-dialog {
+  width: min(100%, 440px);
+  padding: 22px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(8, 47, 99, 0.25);
+}
+
+.profile-edit-dialog h2 { margin: 0; color: var(--primary); }
+.profile-edit-dialog p { margin: 7px 0 18px; color: var(--muted); font-size: 14px; }
+.profile-edit-dialog label { display: block; margin: 14px 0 6px; color: var(--ink); font-size: 13px; font-weight: 800; }
+.profile-edit-dialog select,
+.profile-edit-dialog input { width: 100%; box-sizing: border-box; padding: 11px; border: 1px solid rgba(8, 47, 99, 0.25); border-radius: 10px; background: #fff; color: var(--ink); font: inherit; }
+.profile-edit-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
+.profile-edit-actions button:last-child { background: var(--primary); color: #fff; }
 
 .stats-grid {
   display: grid;

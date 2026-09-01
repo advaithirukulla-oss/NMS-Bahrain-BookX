@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FaBookOpen, FaShieldAlt, FaUserGraduate } from "react-icons/fa";
 import API from "../api/api";
 import { normalizeEmail, validateRegistrationForm } from "../utils/validation";
+import { GRADE_OPTIONS } from "../utils/grades";
 
 function Register({ onLoginClick }) {
   const [name, setName] = useState("");
@@ -70,7 +71,10 @@ function Register({ onLoginClick }) {
         <form autoComplete="off" data-form-type="other" onSubmit={handleRegister}>
           <input type="text" name="register-name" placeholder="Full Name" value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" autoCorrect="off" data-lpignore="true" data-form-type="other" spellCheck={false} aria-label="Full Name" required />
           <input type="email" name="register-email" placeholder="Student ID Email (@nmsedu.bh)" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="off" autoCapitalize="none" autoCorrect="off" data-lpignore="true" data-form-type="other" spellCheck={false} aria-label="Student ID Email" required />
-          <input type="text" name="register-grade" placeholder="Grade" value={grade} onChange={(event) => setGrade(event.target.value)} autoComplete="off" autoCorrect="off" data-lpignore="true" data-form-type="other" spellCheck={false} aria-label="Grade" required />
+          <select name="register-grade" value={grade} onChange={(event) => setGrade(event.target.value)} aria-label="Grade" required>
+            <option value="">Select grade</option>
+            {GRADE_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+          </select>
           <input type="text" name="register-section" placeholder="Section" value={section} onChange={(event) => setSection(event.target.value)} autoComplete="off" autoCorrect="off" data-lpignore="true" data-form-type="other" spellCheck={false} aria-label="Section" required />
           <input type="password" name="register-password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" autoCorrect="off" data-lpignore="true" data-form-type="other" spellCheck={false} aria-label="Password" minLength="8" required />
 

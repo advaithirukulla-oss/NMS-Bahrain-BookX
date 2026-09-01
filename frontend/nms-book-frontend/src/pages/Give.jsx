@@ -3,6 +3,7 @@ import { FaCloudUploadAlt, FaImage, FaPlusCircle, FaTimes } from "react-icons/fa
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { validateBookForm } from "../utils/validation";
+import { GRADE_OPTIONS } from "../utils/grades";
 
 function Give() {
   const { demoMode, user } = useUser();
@@ -185,17 +186,15 @@ function Give() {
           required
         />
 
-        <input
-          type="text"
+        <select
           name="book-grade"
-          placeholder="Grade"
           value={grade}
           onChange={(e) => setGrade(e.target.value)}
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
           required
-        />
+        >
+          <option value="">Select grade</option>
+          {GRADE_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+        </select>
 
         <select
           name="book-condition"

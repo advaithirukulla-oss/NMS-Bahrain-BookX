@@ -3,6 +3,7 @@ import { FaBookOpen, FaBolt, FaMagic, FaPaperPlane, FaRobot, FaTimes } from "rea
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { DEMO_BOOKS } from "../data/DemoData";
+import { formatGrade } from "../utils/grades";
 import { getBookImageUrl } from "../utils/bookImages";
 
 const SUBJECTS = [
@@ -60,7 +61,7 @@ function AIBookFinder({ onBack }) {
         }
         if (intent.grade && grade.includes(intent.grade)) {
           score += 3;
-          reasons.push(`is for Grade ${book.grade}`);
+              reasons.push(`is for ${formatGrade(book.grade)}`);
         }
         intent.keywords.forEach((keyword) => {
           if (title.includes(keyword)) {
@@ -125,7 +126,7 @@ function AIBookFinder({ onBack }) {
             </div>
             <div>
               <h2>{book.title}</h2>
-              <p>{book.subject} | Grade {book.grade}</p>
+              <p>{book.subject} | {formatGrade(book.grade)}</p>
               <strong><FaBolt aria-hidden="true" /> Why it matches:</strong>
               <span>{reasons.length ? reasons.join(", ") : "title or subject keywords match your request"}.</span>
             </div>

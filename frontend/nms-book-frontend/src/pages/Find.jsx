@@ -4,6 +4,7 @@ import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { DEMO_BOOKS } from "../data/DemoData";
 import { getBookImageUrl } from "../utils/bookImages";
+import { formatGrade, gradeSortValue } from "../utils/grades";
 
 function Find() {
   const { demoMode } = useUser();
@@ -69,7 +70,7 @@ function Find() {
       return matchesQuery && matchesGrade && matchesSubject && matchesAvailability;
     }).sort((first, second) => {
       if (sortBy === "title") return first.title.localeCompare(second.title);
-      if (sortBy === "grade") return Number(first.grade) - Number(second.grade);
+      if (sortBy === "grade") return gradeSortValue(first.grade) - gradeSortValue(second.grade);
       return Number(second.id) - Number(first.id);
     });
   }, [availability, books, grade, query, sortBy, subject]);
@@ -163,7 +164,7 @@ function Find() {
               <h2>{book.title}</h2>
               <div className="tag-row">
                 <span><FaLayerGroup aria-hidden="true" /> {book.subject}</span>
-                <span><FaGraduationCap aria-hidden="true" /> Grade {book.grade}</span>
+                <span><FaGraduationCap aria-hidden="true" /> {formatGrade(book.grade)}</span>
                 <span>{book.condition}</span>
                 <span className={`status-pill ${book.status}`}>{book.status}</span>
               </div>

@@ -22,6 +22,7 @@ import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { getDailyBookQuote } from "../data/bookQuotes";
 import { getDemoDashboard } from "../data/DemoData";
+import { formatGrade, GRADE_OPTIONS, VALID_GRADES } from "../utils/grades";
 import "./Profile.css";
 
 function Profile({ notificationCount, onNavigate }) {
@@ -29,10 +30,11 @@ function Profile({ notificationCount, onNavigate }) {
   const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditingGrade, setIsEditingGrade] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState("");
-  const [gradeMessage, setGradeMessage] = useState("");
-  const [isSavingGrade, setIsSavingGrade] = useState(false);
+  const [selectedSection, setSelectedSection] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -78,33 +80,42 @@ function Profile({ notificationCount, onNavigate }) {
     { label: "Approved", value: profile.books_approved ?? 0 },
   ];
   const dailyQuote = getDailyBookQuote();
-  const gradeOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
-
-  const startGradeEdit = () => {
+  const startProfileEdit = () => {
     setSelectedGrade(String(profile.grade ?? ""));
-    setGradeMessage("");
-    setIsEditingGrade(true);
+    setSelectedSection(String(profile.section ?? ""));
+    setProfileMessage("");
+    setIsEditingProfile(true);
   };
 
-  const saveGrade = async () => {
-    if (!gradeOptions.includes(selectedGrade)) {
-      setGradeMessage("Please select a grade from 1 to 12.");
+  const saveProfile = async () => {
+    const cleanedSection = selectedSection.trim();
+    if (!VALID_GRADES.has(selectedGrade)) {
+      setProfileMessage("Please select a valid grade.");
+      return;
+    }
+    if (!/^[A-Za-z0-9 -]{1,20}$/.test(cleanedSection)) {
+      setProfileMessage("Section can contain letters, numbers, spaces, or hyphens only.");
       return;
     }
 
-    setIsSavingGrade(true);
-    setGradeMessage("");
+    setIsSavingProfile(true);
+    setProfileMessage("");
     try {
-      const response = await API.patch(`/profile/${user.id}/grade`, { grade: selectedGrade });
-      const updatedUser = response.data.user;
+      const updatedUser = demoMode
+        ? { ...user, grade: selectedGrade, section: cleanedSection }
+        : (await API.patch("/profile", { grade: selectedGrade, section: cleanedSection })).data.user;
       updateUser(updatedUser);
-      setDashboard((currentDashboard) => currentDashboard ? { ...currentDashboard, grade: updatedUser.grade } : currentDashboard);
-      setIsEditingGrade(false);
-      setGradeMessage("Your grade has been updated.");
+      setDashboard((currentDashboard) => currentDashboard ? {
+        ...currentDashboard,
+        grade: updatedUser.grade,
+        section: updatedUser.section,
+      } : currentDashboard);
+      setIsEditingProfile(false);
+      setProfileMessage("Your grade and section have been updated.");
     } catch (requestError) {
-      setGradeMessage(requestError.response?.data?.detail || "Could not update your grade. Please try again.");
+      setProfileMessage(requestError.response?.data?.detail || "Could not update your profile. Please try again.");
     } finally {
-      setIsSavingGrade(false);
+      setIsSavingProfile(false);
     }
   };
 
@@ -116,7 +127,7 @@ function Profile({ notificationCount, onNavigate }) {
           <p className="eyebrow">BookSpins</p>
           <h1>{profile.name}</h1>
           <p>{demoMode ? "Demo Student" : profile.email}</p>
-          <span className="profile-hero-chip">Grade {profile.grade} | Section {profile.section}</span>
+          <span className="profile-hero-chip">{formatGrade(profile.grade)} | Section {profile.section}</span>
         </div>
       </header>
 
@@ -133,23 +144,32 @@ function Profile({ notificationCount, onNavigate }) {
       <section className="profile-details" aria-label="Student details">
         <div>
           <span>Grade</span>
-          {isEditingGrade ? (
-            <div className="grade-edit-control">
-              <label className="sr-only" htmlFor="profile-grade">Select grade</label>
-              <select id="profile-grade" value={selectedGrade} onChange={(event) => setSelectedGrade(event.target.value)} disabled={isSavingGrade}>
-                <option value="">Select grade</option>
-                {gradeOptions.map((grade) => <option key={grade} value={grade}>Grade {grade}</option>)}
-              </select>
-              <div className="grade-edit-actions">
-                <button type="button" onClick={saveGrade} disabled={isSavingGrade}>{isSavingGrade ? "Saving..." : "Save"}</button>
-                <button type="button" onClick={() => { setIsEditingGrade(false); setGradeMessage(""); }} disabled={isSavingGrade}>Cancel</button>
-              </div>
-            </div>
-          ) : <><strong>{profile.grade}</strong><button className="grade-edit-button" type="button" onClick={startGradeEdit}>Change grade</button></>}
-          {gradeMessage && <p className={`grade-message ${gradeMessage.includes("updated") ? "success" : "error"}`} role="status">{gradeMessage}</p>}
+          <strong>{formatGrade(profile.grade)}</strong>
         </div>
         <div><span>Section</span><strong>{profile.section}</strong></div>
       </section>
+      <button className="profile-edit-button" type="button" onClick={startProfileEdit}>Edit Grade &amp; Section</button>
+      {profileMessage && <p className={`profile-message ${profileMessage.includes("updated") ? "success" : "error"}`} role="status">{profileMessage}</p>}
+
+      {isEditingProfile && (
+        <div className="profile-edit-backdrop" role="presentation">
+          <section className="profile-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title">
+            <h2 id="edit-profile-title">Edit Grade &amp; Section</h2>
+            <p>Keep your student details accurate for better book matches.</p>
+            <label htmlFor="profile-grade">Grade</label>
+            <select id="profile-grade" value={selectedGrade} onChange={(event) => setSelectedGrade(event.target.value)} disabled={isSavingProfile}>
+              <option value="">Select grade</option>
+              {GRADE_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+            </select>
+            <label htmlFor="profile-section">Section</label>
+            <input id="profile-section" value={selectedSection} onChange={(event) => setSelectedSection(event.target.value)} placeholder="e.g. A" maxLength="20" disabled={isSavingProfile} />
+            <div className="profile-edit-actions">
+              <button type="button" onClick={() => { setIsEditingProfile(false); setProfileMessage(""); }} disabled={isSavingProfile}>Cancel</button>
+              <button type="button" onClick={saveProfile} disabled={isSavingProfile}>{isSavingProfile ? "Saving..." : "Save Changes"}</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {isLoading ? <p className="status-card">Loading your dashboard...</p> : error ? (
         <p className="status-card error" role="alert">{error}</p>

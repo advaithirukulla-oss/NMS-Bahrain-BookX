@@ -18,7 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from schemas import (
     UserCreate,
     UserLogin,
-    UserGradeUpdate,
+    UserProfileUpdate,
     BookCreate,
     BookRequestCreate,
     BookRequestUpdate,
@@ -795,23 +795,20 @@ def admin_stats(
     }
 
 
-@app.patch("/profile/{user_id}/grade")
-def update_profile_grade(
-    user_id: int,
-    grade_update: UserGradeUpdate,
+@app.patch("/profile")
+def update_profile(
+    profile_update: UserProfileUpdate,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.id != user_id and current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="You can only change your own grade.")
-
-    user = crud.get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    updated_user = crud.update_user_grade(db, user, grade_update.grade)
+    updated_user = crud.update_user_profile(
+        db,
+        current_user,
+        profile_update.grade,
+        profile_update.section,
+    )
     return {
-        "message": "Grade updated successfully.",
+        "message": "Grade and section updated successfully.",
         "user": {
             "id": updated_user.id,
             "name": updated_user.name,

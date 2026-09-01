@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FaArrowLeft, FaPaperPlane, FaUserCircle } from "react-icons/fa";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
+import { formatGrade } from "../utils/grades";
 import { DEMO_MESSAGES } from "../data/DemoData";
 
 function formatMessageTime(value) {
@@ -95,7 +96,7 @@ function ChatConversation({ conversationUser, onBack }) {
         <FaUserCircle aria-hidden="true" />
         <div>
           <strong>{conversationUser.name}</strong>
-          <span>Grade {conversationUser.grade} | {conversationUser.section}</span>
+          <span>{formatGrade(conversationUser.grade)} | {conversationUser.section}</span>
         </div>
       </header>
 

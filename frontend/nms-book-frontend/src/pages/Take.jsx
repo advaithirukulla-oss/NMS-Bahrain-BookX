@@ -4,6 +4,7 @@ import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { DEMO_BOOKS } from "../data/DemoData";
 import { getBookImageUrl } from "../utils/bookImages";
+import { formatGrade } from "../utils/grades";
 
 function Take() {
   const { demoMode, user } = useUser();
@@ -103,7 +104,7 @@ function Take() {
             </div>
             <div className="tag-row">
               <span><FaLayerGroup aria-hidden="true" /> {book.subject}</span>
-              <span><FaGraduationCap aria-hidden="true" /> Grade {book.grade}</span>
+              <span><FaGraduationCap aria-hidden="true" /> {formatGrade(book.grade)}</span>
               <span className={`status-pill ${book.status}`}>{book.status}</span>
             </div>
 
@@ -129,7 +130,7 @@ function Take() {
             <div className="dialog-image">
               {selectedBook.image_url ? <img src={getBookImageUrl(selectedBook.image_url)} alt={`${selectedBook.title} cover`} /> : <FaBookOpen aria-hidden="true" />}
             </div>
-            <div className="dialog-copy"><h2>{selectedBook.title}</h2><p>{selectedBook.subject} · Grade {selectedBook.grade} · {selectedBook.condition || "Good condition"}</p><p>{selectedBook.description}</p></div>
+            <div className="dialog-copy"><h2>{selectedBook.title}</h2><p>{selectedBook.subject} · {formatGrade(selectedBook.grade)} · {selectedBook.condition || "Good condition"}</p><p>{selectedBook.description}</p></div>
           </section>
         </div>
       )}

@@ -1,10 +1,12 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+VALID_GRADES = {"KG 1", "KG 2", *{str(grade) for grade in range(1, 13)}}
+
 
 def _validate_grade(value: str) -> str:
     cleaned_value = value.strip()
-    if cleaned_value not in {str(grade) for grade in range(1, 13)}:
-        raise ValueError("Grade must be a number from 1 to 12.")
+    if cleaned_value not in VALID_GRADES:
+        raise ValueError("Grade must be KG 1, KG 2, or a number from 1 to 12.")
     return cleaned_value
 
 
@@ -12,7 +14,7 @@ class UserCreate(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     email: EmailStr
     grade: str
-    section: str = Field(min_length=1, max_length=20)
+    section: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9 -]+$")
     password: str = Field(min_length=8, max_length=128)
     accepted_terms: bool
 
@@ -45,13 +47,22 @@ class UserLogin(BaseModel):
         return str(value).strip().lower()
 
 
-class UserGradeUpdate(BaseModel):
+class UserProfileUpdate(BaseModel):
     grade: str
+    section: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9 -]+$")
 
     @field_validator("grade")
     @classmethod
     def validate_grade(cls, value: str):
         return _validate_grade(value)
+
+    @field_validator("section")
+    @classmethod
+    def validate_section(cls, value: str):
+        cleaned_value = value.strip()
+        if not cleaned_value:
+            raise ValueError("Section is required.")
+        return cleaned_value
 
 
 class BookCreate(BaseModel):

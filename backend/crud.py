@@ -35,8 +35,9 @@ def create_user(db: Session, user_data):
     return new_user
 
 
-def update_user_grade(db: Session, user: User, grade: str):
+def update_user_profile(db: Session, user: User, grade: str, section: str):
     user.grade = grade
+    user.section = section
     db.commit()
     db.refresh(user)
     return user

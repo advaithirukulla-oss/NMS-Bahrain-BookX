@@ -4,6 +4,7 @@ import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { getDemoOwnerBooks } from "../data/DemoData";
 import { getBookImageUrl } from "../utils/bookImages";
+import { formatGrade } from "../utils/grades";
 
 function formatDate(value) {
   return new Intl.DateTimeFormat("en-BH", { dateStyle: "medium" }).format(new Date(value));
@@ -82,7 +83,7 @@ function MyBooks({ onBack }) {
                   <h2>{book.title}</h2>
                   <div className="tag-row">
                     <span>{book.subject}</span>
-                    <span>Grade {book.grade}</span>
+                    <span>{formatGrade(book.grade)}</span>
                   </div>
                 </div>
               </div>

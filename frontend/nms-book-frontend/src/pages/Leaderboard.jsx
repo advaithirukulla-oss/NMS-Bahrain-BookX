@@ -3,6 +3,7 @@ import { FaMedal, FaStar, FaTrophy } from "react-icons/fa";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { DEMO_USERS } from "../data/DemoData";
+import { formatGrade } from "../utils/grades";
 
 function Leaderboard({ onBack }) {
   const { demoMode } = useUser();
@@ -42,7 +43,7 @@ function Leaderboard({ onBack }) {
             <div className="rank-badge">{index < 3 ? <FaMedal aria-hidden="true" /> : <span>{index + 1}</span>}</div>
             <div className="leaderboard-copy">
               <strong>{student.name}</strong>
-              <span>Grade {student.grade} | Section {student.section}</span>
+              <span>{formatGrade(student.grade)} | Section {student.section}</span>
             </div>
             <div className="points-badge"><FaStar aria-hidden="true" /> {student.trust_points ?? 0}</div>
           </article>
