@@ -56,8 +56,8 @@ function Profile({ notificationCount, onNavigate }) {
           updateUser({
             name: response.data.name,
             email: response.data.email ?? user.email,
-            grade: response.data.grade ?? user.grade,
-            section: response.data.section ?? user.section,
+            grade: response.data.grade,
+            section: response.data.section,
             trust_points: response.data.trust_points,
           });
         }
@@ -70,7 +70,7 @@ function Profile({ notificationCount, onNavigate }) {
 
     loadDashboard();
     return () => { isMounted = false; };
-  }, [demoMode, updateUser, user.email, user.grade, user.id, user.section]);
+  }, [demoMode, updateUser, user.email, user.id]);
 
   const profile = { ...user, ...dashboard };
   const chartMaximum = Math.max(profile.books_posted ?? 0, profile.books_requested ?? 0, profile.books_approved ?? 0, 1);
