@@ -76,7 +76,6 @@ function ChatConversation({ conversationUser, onBack }) {
         return;
       }
       await API.post("/messages", {
-        sender_id: user.id,
         receiver_id: conversationUser.user_id,
         message_text: trimmedMessage,
       });

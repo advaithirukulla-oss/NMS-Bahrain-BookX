@@ -102,7 +102,6 @@ function Give() {
       formData.append("condition", condition);
       formData.append("description", description.trim());
       formData.append("is_syllabus_book", String(isSyllabusBook));
-      formData.append("owner_id", String(user.id));
       if (imageFile) formData.append("image", imageFile);
 
       await API.post("/books", formData);

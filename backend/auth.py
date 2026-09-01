@@ -17,6 +17,7 @@ pwd_context = CryptContext(
 )
 
 SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET_KEY", "change-this-development-secret")
+INSECURE_DEFAULT_SECRET = "change-this-development-secret"
 
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 

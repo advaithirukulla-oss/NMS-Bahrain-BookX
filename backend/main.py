@@ -32,7 +32,7 @@ import crud
 
 from database import engine, SessionLocal
 from schemas import UserCreate, UserLogin
-from auth import ALGORITHM, SECRET_KEY, verify_password, create_access_token
+from auth import ALGORITHM, SECRET_KEY, INSECURE_DEFAULT_SECRET, verify_password, create_access_token
 
 try:
     from dotenv import load_dotenv
@@ -145,6 +145,8 @@ def initialize_database():
 
 @app.on_event("startup")
 def startup_event():
+    if ENVIRONMENT == "production" and SECRET_KEY == INSECURE_DEFAULT_SECRET:
+        raise RuntimeError("SECRET_KEY must be configured in production.")
     if not ENABLE_DB_INIT:
         logger.info("Database initialization skipped.")
         return
@@ -287,6 +289,16 @@ async def save_book_image(image: UploadFile | None) -> str | None:
             detail="Book image must be 5MB or smaller."
         )
 
+    image_headers = {
+        ".jpg": (b"\xff\xd8\xff",),
+        ".png": (b"\x89PNG\r\n\x1a\n",),
+        ".webp": (b"RIFF",),
+    }
+    if not any(content.startswith(header) for header in image_headers[extension]):
+        raise HTTPException(status_code=400, detail="The uploaded file is not a valid image.")
+    if extension == ".webp" and content[8:12] != b"WEBP":
+        raise HTTPException(status_code=400, detail="The uploaded file is not a valid WEBP image.")
+
     file_name = f"{uuid4().hex}{extension}"
     file_path = UPLOAD_DIR / file_name
     file_path.write_bytes(content)
@@ -344,7 +356,7 @@ def health_check():
 
 
 @app.get("/test-db")
-def test_database():
+def test_database(_admin: models.User = Depends(get_current_admin)):
     with engine.connect() as connection:
         result = connection.execute(text("SELECT DATABASE();"))
         database_name = result.scalar()
@@ -441,8 +453,11 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
 @app.get("/profile/{user_id}")
 def get_profile(
     user_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.id != user_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own profile.")
 
     user = crud.get_user_by_id(
         db,
@@ -468,9 +483,11 @@ def get_profile(
 @app.post("/books")
 async def create_book(
     request: Request,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     book = await parse_book_create_request(request)
+    book.owner_id = current_user.id
 
     if not book.is_syllabus_book:
         raise HTTPException(
@@ -500,6 +517,7 @@ async def create_book(
 
 @app.get("/books")
 def get_books(
+    _current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
@@ -510,6 +528,7 @@ def get_books(
 @app.get("/books/search")
 def search_books(
     keyword: str = Query(...),
+    _current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
@@ -523,6 +542,7 @@ def search_books(
 @app.post("/requests")
 def request_book(
     request: BookRequestCreate,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
@@ -537,16 +557,19 @@ def request_book(
             detail="Book not found."
         )
 
-    if book.status == "reserved":
+    if book.owner_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot request your own book.")
+
+    if book.status != "available":
         raise HTTPException(
             status_code=400,
-            detail="This book has already been reserved."
+            detail="This book is no longer available."
         )
 
     existing = crud.existing_request(
         db,
         request.book_id,
-        request.requester_id
+        current_user.id
     )
 
     if existing:
@@ -557,7 +580,7 @@ def request_book(
 
     created_request = crud.create_book_request(
         db,
-        request
+        request.model_copy(update={"requester_id": current_user.id})
     )
 
     return {
@@ -568,6 +591,7 @@ def request_book(
 
 @app.get("/requests")
 def get_all_requests(
+    _admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     requests = crud.get_all_requests(db)
@@ -577,8 +601,14 @@ def get_all_requests(
 @app.get("/requests/book/{book_id}")
 def get_requests_for_book(
     book_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    book = crud.get_book_by_id(db, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found.")
+    if book.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view requests for your own books.")
     requests = crud.get_requests_by_book(
         db,
         book_id
@@ -590,8 +620,11 @@ def get_requests_for_book(
 @app.get("/requests/user/{requester_id}")
 def get_requests_for_user(
     requester_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if requester_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own requests.")
     requests = db.query(
         models.BookRequest,
         models.Book,
@@ -625,8 +658,11 @@ def get_requests_for_user(
 @app.get("/books/owner/{owner_id}/requests")
 def get_owner_books_with_requests(
     owner_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own books.")
     books = db.query(models.Book).filter(
         models.Book.owner_id == owner_id
     ).order_by(models.Book.id.desc()).all()
@@ -671,6 +707,7 @@ def get_owner_books_with_requests(
 def update_request(
     request_id: int,
     request_update: BookRequestUpdate,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
@@ -679,6 +716,15 @@ def update_request(
             status_code=400,
             detail="Status must be approved or rejected."
         )
+
+    existing_request = db.query(models.BookRequest).filter(models.BookRequest.id == request_id).first()
+    if not existing_request:
+        raise HTTPException(status_code=404, detail="Request not found.")
+    book = crud.get_book_by_id(db, existing_request.book_id)
+    if not book or (book.owner_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=403, detail="Only the book owner can update this request.")
+    if existing_request.status != "pending":
+        raise HTTPException(status_code=400, detail="Only pending requests can be updated.")
 
     updated_request = crud.update_request_status(
         db,
@@ -704,6 +750,7 @@ def update_request(
 
 @app.get("/leaderboard")
 def trust_leaderboard(
+    _current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
@@ -779,6 +826,7 @@ def update_profile_grade(
 @app.delete("/requests/{request_id}")
 def cancel_request(
     request_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
@@ -798,6 +846,9 @@ def cancel_request(
             detail="Only pending requests can be cancelled."
         )
 
+    if request.requester_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only cancel your own requests.")
+
     db.delete(request)
     db.commit()
 
@@ -808,8 +859,11 @@ def cancel_request(
 @app.get("/dashboard/{user_id}")
 def user_dashboard(
     user_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own dashboard.")
 
     user = crud.get_user_by_id(
         db,
@@ -853,8 +907,11 @@ def user_dashboard(
 @app.get("/notifications/{user_id}")
 def get_notifications(
     user_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own notifications.")
     notifications = []
 
     request_updates = db.query(
@@ -937,19 +994,23 @@ def get_notifications(
 @app.post("/messages")
 def send_message(
     message_data: MessageCreate,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-
-    if message_data.sender_id == message_data.receiver_id:
+    if current_user.id == message_data.receiver_id:
 
         raise HTTPException(
             status_code=400,
             detail="You cannot send messages to yourself."
         )
 
+    receiver = crud.get_user_by_id(db, message_data.receiver_id)
+    if not receiver:
+        raise HTTPException(status_code=404, detail="Recipient not found.")
+
     created_message = crud.create_message(
         db,
-        message_data
+        message_data.model_copy(update={"sender_id": current_user.id})
     )
 
     return {
@@ -961,8 +1022,11 @@ def send_message(
 def get_conversation(
     user1_id: int,
     user2_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.id not in {user1_id, user2_id} and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own conversations.")
 
     messages = crud.get_conversation(
         db,
@@ -975,8 +1039,11 @@ def get_conversation(
 @app.get("/messages/users/{user_id}")
 def get_message_users(
     user_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own conversations.")
 
     users = crud.get_chat_users(
         db,
@@ -989,8 +1056,11 @@ def get_message_users(
 def get_last_message(
     user1_id: int,
     user2_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.id not in {user1_id, user2_id} and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own conversations.")
 
     message = crud.get_last_message_between_users(
         db,
@@ -1014,8 +1084,11 @@ def get_last_message(
 @app.get("/messages/unread/{user_id}")
 def unread_count(
     user_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own unread count.")
 
     count = crud.get_unread_count(
         db,
@@ -1030,8 +1103,14 @@ def unread_count(
 @app.put("/messages/read/{message_id}")
 def mark_read(
     message_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    existing_message = db.query(models.Message).filter(models.Message.id == message_id).first()
+    if not existing_message:
+        raise HTTPException(status_code=404, detail="Message not found.")
+    if existing_message.receiver_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only mark messages sent to you as read.")
 
     message = crud.mark_message_read(
         db,
@@ -1051,8 +1130,14 @@ def mark_read(
 @app.delete("/messages/{message_id}")
 def delete_message(
     message_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    existing_message = db.query(models.Message).filter(models.Message.id == message_id).first()
+    if not existing_message:
+        raise HTTPException(status_code=404, detail="Message not found.")
+    if current_user.id not in {existing_message.sender_id, existing_message.receiver_id} and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only delete messages in your own conversations.")
 
     message = crud.delete_message(
         db,
@@ -1072,8 +1157,11 @@ def delete_message(
 @app.get("/messages/summary/{user_id}")
 def dm_summary(
     user_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only view your own conversations.")
 
     summary = crud.get_dm_summary(
         db,
@@ -1086,8 +1174,11 @@ def dm_summary(
 def read_conversation(
     current_user_id: int,
     other_user_id: int,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You can only update your own conversations.")
 
     updated_count = crud.mark_conversation_as_read(
         db,

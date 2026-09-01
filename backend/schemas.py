@@ -61,7 +61,9 @@ class BookCreate(BaseModel):
     condition: str = Field(pattern=r"^(Excellent|Good|Used)$")
     description: str = Field(min_length=8, max_length=500)
     is_syllabus_book: bool
-    owner_id: int
+    # The authenticated user is always assigned as the owner by the API.
+    # Keep this optional for compatibility with older clients that still send it.
+    owner_id: int | None = None
     image_url: str | None = Field(default=None, max_length=500)
 
     @field_validator("grade")
@@ -77,7 +79,7 @@ class BookCreate(BaseModel):
 
 class BookRequestCreate(BaseModel):
     book_id: int
-    requester_id: int
+    requester_id: int | None = None
 
 
 class BookRequestUpdate(BaseModel):
@@ -85,7 +87,7 @@ class BookRequestUpdate(BaseModel):
 
 
 class MessageCreate(BaseModel):
-    sender_id: int
+    sender_id: int | None = None
     receiver_id: int
     message_text: str = Field(min_length=1, max_length=1000)
 

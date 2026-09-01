@@ -56,8 +56,7 @@ function Take() {
         return;
       }
       await API.post("/requests", {
-        book_id: bookId,
-        requester_id: user.id
+        book_id: bookId
       });
 
       setMessage("Book requested successfully!");
@@ -115,10 +114,10 @@ function Take() {
             <button
               className="primary-btn request-book-btn"
               type="button"
-              disabled={book.status === "reserved" || requestingBookId === book.id}
+              disabled={book.status !== "available" || book.owner_id === user?.id || requestingBookId === book.id}
               onClick={() => requestBook(book.id)}
             >
-              {requestingBookId === book.id ? "Requesting..." : book.status === "reserved" ? "Reserved" : "Request Book"}
+              {requestingBookId === book.id ? "Requesting..." : book.owner_id === user?.id ? "Your Book" : book.status !== "available" ? "Reserved" : "Request Book"}
             </button>
           </div>
         ))}
