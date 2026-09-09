@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FaCloudUploadAlt, FaImage, FaPlusCircle, FaTimes } from "react-icons/fa";
+import { FaArrowRight, FaCheckCircle, FaCloudUploadAlt, FaImage, FaPlusCircle, FaTimes } from "react-icons/fa";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { validateBookForm } from "../utils/validation";
@@ -21,6 +21,7 @@ function Give() {
 
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
 
   useEffect(() => () => {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
@@ -76,7 +77,7 @@ function Give() {
 
   const postBook = async (event) => {
     event.preventDefault();
-    setMessage("");
+    setMessage(""); setIsComplete(false);
 
     if (!user) {
       setMessage("Please login first.");
@@ -92,7 +93,7 @@ function Give() {
     try {
       setIsSubmitting(true);
       if (demoMode) {
-        setMessage("Demo book posted successfully!");
+        setMessage("Your book is ready for its second spin."); setIsComplete(true);
         resetForm();
         return;
       }
@@ -107,7 +108,7 @@ function Give() {
 
       await API.post("/books", formData);
 
-      setMessage("Book posted successfully!");
+      setMessage("Your book is ready for its second spin."); setIsComplete(true);
       resetForm();
     } catch (err) {
       setMessage(
@@ -120,21 +121,17 @@ function Give() {
 
   return (
     <div className="page">
-      <header className="page-heading">
+      <header className="page-heading give-heading">
         <div>
-          <p className="eyebrow">Share a syllabus book</p>
-          <h1>Give Book</h1>
+          <p className="eyebrow">KEEP THE CIRCLE GOING</p>
+          <h1>Give your book<br />another spin.</h1>
         </div>
         <FaPlusCircle aria-hidden="true" />
       </header>
 
-      {message && (
-        <p className="page-message">
-          {message}
-        </p>
-      )}
+      {isComplete ? <section className="spin-success" role="status"><span><FaCheckCircle /></span><div><p className="eyebrow">LISTING CREATED</p><h2>{message}</h2><p>Thanks for making another student’s search easier.</p><div><button type="button" onClick={() => { setIsComplete(false); setMessage(""); }}>Give another book</button><button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Back to top <FaArrowRight /></button></div></div></section> : message && <p className="page-message error" role="alert">{message}</p>}
 
-      <form className="form-card give-form" autoComplete="off" onSubmit={postBook}>
+      {!isComplete && <form className="form-card give-form" autoComplete="off" onSubmit={postBook}>
         <section className="upload-section" aria-labelledby="book-image-label">
           <div className="field-heading"><span id="book-image-label">Book photo</span><small>Optional, but helps students find it faster</small></div>
           <div
@@ -162,7 +159,7 @@ function Give() {
           </div>
         </section>
 
-        <input
+        <section className="form-step"><p className="eyebrow">01 · THE BOOK</p><label htmlFor="book-title">What’s the title?</label><input id="book-title"
           type="text"
           name="book-title"
           placeholder="Book Title"
@@ -174,7 +171,7 @@ function Give() {
           required
         />
 
-        <input
+        <label htmlFor="book-subject">Which subject is it for?</label><input id="book-subject"
           type="text"
           name="book-subject"
           placeholder="Subject"
@@ -185,8 +182,12 @@ function Give() {
           spellCheck={false}
           required
         />
+        </section>
 
+        <section className="form-step"><p className="eyebrow">02 · THE DETAILS</p><div className="form-split">
+        <label htmlFor="book-grade">Grade
         <select
+          id="book-grade"
           name="book-grade"
           value={grade}
           onChange={(e) => setGrade(e.target.value)}
@@ -194,17 +195,16 @@ function Give() {
         >
           <option value="">Select grade</option>
           {GRADE_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
-        </select>
+        </select></label>
 
-        <select
-          name="book-condition"
+        <label htmlFor="book-condition">Condition<select id="book-condition" name="book-condition"
           value={condition}
           onChange={(e) => setCondition(e.target.value)}
         >
           <option value="Excellent">Excellent</option>
           <option value="Good">Good</option>
           <option value="Used">Used</option>
-        </select>
+        </select></label></div>
 
         <textarea
           name="book-description"
@@ -216,6 +216,7 @@ function Give() {
           spellCheck={false}
           required
         />
+        </section>
 
         <label className="terms-row">
           <input
@@ -236,7 +237,7 @@ function Give() {
         >
           {isSubmitting ? "Posting..." : "Post Book"}
         </button>
-      </form>
+      </form>}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FaBookOpen, FaShieldAlt, FaUserGraduate } from "react-icons/fa";
+import { FaBookOpen, FaEye, FaEyeSlash, FaShieldAlt, FaUserGraduate } from "react-icons/fa";
 import { useUser } from "../context/UserContext";
 import { normalizeEmail, validateLoginForm } from "../utils/validation";
 
@@ -9,6 +9,7 @@ function Login({ onRegisterClick }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -43,9 +44,7 @@ function Login({ onRegisterClick }) {
 
         <h1>BookSpins</h1>
 
-        <p className="auth-subtitle">
-          Share, find, and request school syllabus books.
-        </p>
+        <p className="auth-subtitle">Giving Books a Second Spin</p>
 
         <div className="notice-box">
           <p><FaShieldAlt aria-hidden="true" /> Only NMS Bahrain students are allowed.</p>
@@ -54,7 +53,7 @@ function Login({ onRegisterClick }) {
 
         <form autoComplete="off" data-form-type="other" onSubmit={handleLogin}>
           <label className="sr-only" htmlFor="login-email">Student ID Email</label>
-          <input
+          <div className="password-field"><input
             id="login-email"
             name="login-email"
             type="email"
@@ -74,7 +73,7 @@ function Login({ onRegisterClick }) {
           <input
             id="login-password"
             name="login-password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -84,7 +83,7 @@ function Login({ onRegisterClick }) {
             data-form-type="other"
             spellCheck={false}
             required
-          />
+          /><button type="button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <FaEyeSlash /> : <FaEye />}</button></div>
 
           <button className="primary-btn" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Logging in..." : "Login"}

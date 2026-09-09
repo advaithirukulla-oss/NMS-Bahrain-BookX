@@ -93,7 +93,7 @@ function Take() {
         {books.map((book) => (
           <div className="book-card" key={book.id}>
             <button className="book-image-placeholder image-viewer-trigger" type="button" onClick={() => setSelectedBook(book)} aria-label={`View ${book.title} details`}>
-              {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} /> : <FaBookOpen aria-hidden="true" />}
+              {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} loading="lazy" /> : <FaBookOpen aria-hidden="true" />}
               <span className={`cover-status ${book.status}`}><FaCheckCircle aria-hidden="true" /> {book.status}</span>
               <span className="expand-image"><FaExpandAlt aria-hidden="true" /> View</span>
             </button>
@@ -130,7 +130,7 @@ function Take() {
             <div className="dialog-image">
               {selectedBook.image_url ? <img src={getBookImageUrl(selectedBook.image_url)} alt={`${selectedBook.title} cover`} /> : <FaBookOpen aria-hidden="true" />}
             </div>
-            <div className="dialog-copy"><h2>{selectedBook.title}</h2><p>{selectedBook.subject} · {formatGrade(selectedBook.grade)} · {selectedBook.condition || "Good condition"}</p><p>{selectedBook.description}</p></div>
+            <div className="dialog-copy book-detail-copy"><p className="eyebrow">AVAILABLE TO SPIN</p><h2>{selectedBook.title}</h2><div className="detail-chips"><span>{selectedBook.subject}</span><span>{formatGrade(selectedBook.grade)}</span><span>{selectedBook.condition || "Good"}</span></div><p>{selectedBook.description || "This listing is ready for a new reader."}</p>{selectedBook.owner_id === user?.id ? <p className="detail-owner">This is your listing.</p> : <button className="primary-btn" type="button" disabled={selectedBook.status !== "available" || requestingBookId === selectedBook.id} onClick={() => requestBook(selectedBook.id)}>{requestingBookId === selectedBook.id ? "Requesting..." : selectedBook.status === "available" ? "Request Book" : "Currently reserved"}</button>}</div>
           </section>
         </div>
       )}

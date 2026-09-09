@@ -99,12 +99,12 @@ function AIBookFinder({ onBack }) {
       <main className="ai-thread">
         <div className="assistant-message ai-bubble-with-icon">
           <span className="assistant-badge"><FaRobot aria-hidden="true" /></span>
-          <span>Hi! Tell me the title, subject, or grade you need. I will match your request with available books.</span>
+          <span><strong>What are you looking for?</strong><br />Tell me the title, subject, or grade you need and I’ll match it with available listings.</span>
         </div>
 
         {!submittedQuery && (
           <div className="suggestion-row">
-            {["Grade 10 Biology", "Math", "English"].map((suggestion) => (
+            {["Science for Grade 7", "Easy English reading", "Something adventurous", "Math practice"].map((suggestion) => (
               <button type="button" key={suggestion} onClick={() => chooseSuggestion(suggestion)}>{suggestion}</button>
             ))}
           </div>
@@ -122,7 +122,7 @@ function AIBookFinder({ onBack }) {
         {matches.map(({ book, reasons }) => (
           <article className="ai-result-card" key={book.id}>
             <div className="book-thumb small">
-              {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} /> : <FaBookOpen />}
+              {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} loading="lazy" /> : <FaBookOpen />}
             </div>
             <div>
               <h2>{book.title}</h2>

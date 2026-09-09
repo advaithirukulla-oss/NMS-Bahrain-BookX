@@ -159,7 +159,7 @@ function Find() {
         {filteredBooks.map((book) => (
           <article className="compact-book-card" key={book.id}>
             <div className="book-thumb">
-              {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} /> : <FaBookOpen />}
+              {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} loading="lazy" /> : <FaBookOpen />}
               <span className={`mini-status ${book.status}`}><FaCheckCircle aria-hidden="true" /></span>
             </div>
             <div>
