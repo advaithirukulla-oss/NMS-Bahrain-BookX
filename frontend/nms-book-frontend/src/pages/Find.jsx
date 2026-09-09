@@ -79,6 +79,8 @@ function Find() {
     () => [...new Set(books.map((book) => book.subject).filter(Boolean))].sort((first, second) => first.localeCompare(second)),
     [books],
   );
+  const clearFilters = () => { setQuery(""); setGrade(""); setSubject(""); setAvailability("available"); setSortBy("newest"); };
+  const hasActiveFilters = Boolean(query || grade || subject || availability !== "available" || sortBy !== "newest");
 
   return (
     <div className="page find-page">
@@ -144,13 +146,13 @@ function Find() {
           </label>
         </div>
 
-        <p className="result-count"><FaFilter /> {filteredBooks.length} matching books</p>
+        <p className="result-count"><FaFilter /> {filteredBooks.length} matching books {hasActiveFilters && <button type="button" onClick={clearFilters}>Clear filters</button>}</p>
       </section>
 
       {isLoading && <p className="status-card">Searching books...</p>}
       {error && <p className="status-card error" role="alert">{error}</p>}
       {!isLoading && !error && filteredBooks.length === 0 && (
-        <p className="empty-state">No books match those filters.</p>
+        <div className="empty-state"><strong>No match yet.</strong><p>Try changing your filters, or ask BookSpins AI for help.</p><button type="button" onClick={clearFilters}>Clear Filters</button></div>
       )}
 
       <div className="compact-book-list">

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { FaUser, FaBookOpen, FaPlusCircle, FaSearch, FaComments, FaCircle } from "react-icons/fa";
+import { FaUser, FaBookOpen, FaPlusCircle, FaSearch, FaClipboardList, FaBell } from "react-icons/fa";
 import API from "./api/api";
 import { useUser } from "./context/UserContext";
 import { getDemoNotifications } from "./data/DemoData";
@@ -18,13 +18,14 @@ const Terms = lazy(() => import("./pages/Terms"));
 const RequestsPage = lazy(() => import("./pages/RequestsPage"));
 const MyBooks = lazy(() => import("./pages/MyBooks"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const Home = lazy(() => import("./pages/Home"));
 
 const NAV_ITEMS = [
-  { id: "profile", label: "Profile", icon: FaUser },
-  { id: "take", label: "Take", icon: FaBookOpen },
-  { id: "give", label: "Give", icon: FaPlusCircle },
+  { id: "home", label: "Home", icon: FaBookOpen },
   { id: "find", label: "Find", icon: FaSearch },
-  { id: "messages", label: "DMs", icon: FaComments },
+  { id: "give", label: "Give", icon: FaPlusCircle },
+  { id: "requests", label: "Requests", icon: FaClipboardList },
+  { id: "profile", label: "Profile", icon: FaUser },
 ];
 
 function PageFallback() {
@@ -47,7 +48,7 @@ function PageFallback() {
 function App() {
   const { demoMode, isAuthenticated, user } = useUser();
   const [authMode, setAuthMode] = useState("login");
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState("home");
   const [notificationCount, setNotificationCount] = useState(0);
 
   const navigate = useCallback((tab) => setActiveTab(tab), []);
@@ -82,11 +83,12 @@ function App() {
   useEffect(() => {
     if (isAuthenticated) return undefined;
 
-    const timeout = setTimeout(() => setActiveTab("profile"), 0);
+    const timeout = setTimeout(() => setActiveTab("home"), 0);
     return () => clearTimeout(timeout);
   }, [isAuthenticated]);
 
   const page = useMemo(() => {
+    if (activeTab === "home") return <Home onNavigate={navigate} />;
     if (activeTab === "profile") return <Profile notificationCount={notificationCount} onNavigate={navigate} />;
     if (activeTab === "take") return <Take />;
     if (activeTab === "give") return <Give />;
@@ -99,7 +101,7 @@ function App() {
     if (activeTab === "requests") return <RequestsPage onBack={() => navigate("profile")} />;
     if (activeTab === "my-books") return <MyBooks onBack={() => navigate("profile")} />;
     if (activeTab === "notifications") return <Notifications onBack={() => navigate("profile")} />;
-    return <Profile notificationCount={notificationCount} onNavigate={navigate} />;
+    return <Home onNavigate={navigate} />;
   }, [activeTab, navigate, notificationCount]);
 
   if (!isAuthenticated) {
@@ -113,11 +115,11 @@ function App() {
   return (
     <div className="app">
       <header className="app-topbar">
-        <button className="brand-lockup" type="button" onClick={() => navigate("profile")} aria-label="Go to BookSpins dashboard">
+        <button className="brand-lockup" type="button" onClick={() => navigate("home")} aria-label="Go to BookSpins home">
           <span className="brand-mark"><FaBookOpen aria-hidden="true" /></span>
           <span>BookSpins</span>
         </button>
-        <span className="app-status"><FaCircle aria-hidden="true" /> Student exchange</span>
+        <div className="topbar-actions"><span className="app-status">Giving Books a Second Spin</span><button type="button" onClick={() => navigate("notifications")} aria-label="View notifications" className="topbar-icon"><FaBell />{notificationCount > 0 && <b>{notificationCount}</b>}</button></div>
       </header>
       <main className="page-content">
         <Suspense fallback={<PageFallback />}>{page}</Suspense>
@@ -130,7 +132,7 @@ function App() {
             <button type="button" onClick={() => navigate(item.id)} className={activeTab === item.id ? "active" : ""} key={item.id}>
               <span className="nav-icon-wrap">
                 <Icon />
-                {item.id === "profile" && notificationCount > 0 && <span className="nav-badge">{notificationCount}</span>}
+              {item.id === "requests" && notificationCount > 0 && <span className="nav-badge">{notificationCount}</span>}
               </span>
               <span>{item.label}</span>
             </button>
