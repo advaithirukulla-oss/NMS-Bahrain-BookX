@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, func
+from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, UniqueConstraint, func
 from database import Base
 
 class User(Base):
@@ -38,6 +38,16 @@ class Book(Base):
     is_syllabus_book = Column(Integer, default=1)
 
     owner_id = Column(Integer, ForeignKey("users.id"))
+
+class SavedBook(Base):
+    __tablename__ = "saved_books"
+    __table_args__ = (UniqueConstraint("user_id", "book_id", name="uq_saved_user_book"),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
 
 class BookRequest(Base):
     __tablename__ = "book_requests"

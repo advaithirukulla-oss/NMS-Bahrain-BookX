@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from jose import JWTError, jwt
 from sqlalchemy import inspect, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from schemas import (
@@ -349,6 +349,7 @@ def home():
 def health_check():
     return {
         "status": "ok",
+        "release": "2.1",
         "app": APP_NAME,
         "version": APP_VERSION,
         "environment": ENVIRONMENT
@@ -538,6 +539,52 @@ def search_books(
     )
 
     return books
+
+@app.get("/saved-books")
+def get_saved_books(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.query(models.Book).join(models.SavedBook, models.SavedBook.book_id == models.Book.id).filter(
+        models.SavedBook.user_id == current_user.id
+    ).order_by(models.SavedBook.created_at.desc(), models.SavedBook.id.desc()).all()
+
+
+@app.post("/saved-books/{book_id}")
+def save_book(book_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not crud.get_book_by_id(db, book_id):
+        raise HTTPException(status_code=404, detail="Book not found.")
+    existing = db.query(models.SavedBook).filter_by(user_id=current_user.id, book_id=book_id).first()
+    if not existing:
+        db.add(models.SavedBook(user_id=current_user.id, book_id=book_id))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            # Concurrent saves are idempotent; other integrity errors are not hidden.
+            if not db.query(models.SavedBook).filter_by(user_id=current_user.id, book_id=book_id).first():
+                if not crud.get_book_by_id(db, book_id):
+                    raise HTTPException(status_code=404, detail="Book not found.")
+                raise
+    return {"book_id": book_id, "saved": True}
+
+
+@app.delete("/saved-books/{book_id}")
+def unsave_book(book_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    db.query(models.SavedBook).filter_by(user_id=current_user.id, book_id=book_id).delete()
+    db.commit()
+    return {"book_id": book_id, "saved": False}
+
+
+@app.get("/books/{book_id}")
+def book_details(book_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    book = crud.get_book_by_id(db, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found.")
+    # Request activity is private to the requester or the owner.
+    requests = db.query(models.BookRequest).filter(models.BookRequest.book_id == book_id)
+    if book.owner_id != current_user.id:
+        requests = requests.filter(models.BookRequest.requester_id == current_user.id)
+    return {"book": book, "activity": [{"status": request.status, "created_at": request.created_at}
+            for request in requests.order_by(models.BookRequest.id.desc()).all()]}
+
 
 @app.post("/requests")
 def request_book(
@@ -926,8 +973,9 @@ def get_notifications(
         notifications.append({
             "id": f"request-update-{request.id}",
             "type": f"book_{request.status}",
-            "title": f"Book request {request.status}",
-            "message": f'Your request for "{book.title}" was {request.status}.',
+            "target": "requests", "request_id": request.id, "book_id": book.id,
+            "title": "Request accepted" if request.status == "approved" else "Request declined",
+            "message": f'Your request for "{book.title}" was {"accepted" if request.status == "approved" else "declined"}.',
             "created_at": request.created_at,
             "is_unread": True
         })
@@ -951,6 +999,7 @@ def get_notifications(
         notifications.append({
             "id": f"incoming-request-{request.id}",
             "type": "new_request",
+            "target": "my-books", "request_id": request.id, "book_id": book.id,
             "title": "New book request",
             "message": f'{requester.name} requested "{book.title}".',
             "created_at": request.created_at,
@@ -972,6 +1021,7 @@ def get_notifications(
         notifications.append({
             "id": f"message-{message.id}",
             "type": "new_message",
+            "target": "messages", "conversation": {"user_id": sender.id, "name": sender.name},
             "title": "New message",
             "message": f"{sender.name}: {message.message_text}",
             "created_at": message.created_at,

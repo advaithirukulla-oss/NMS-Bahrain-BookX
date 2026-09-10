@@ -208,6 +208,7 @@ function Profile({ notificationCount, onNavigate }) {
       </section>
 
       <section className="profile-links" aria-label="Manage books and requests">
+        <button type="button" onClick={() => onNavigate("saved")}><FaBook /><span><strong>Saved Books</strong><small>Books to come back to</small></span></button>
         <h2>Manage</h2>
         <button type="button" onClick={() => onNavigate("notifications")}>
           <FaBell /><span><strong>Notifications {notificationCount > 0 && <b className="inline-badge">{notificationCount}</b>}</strong><small>Approvals, messages, and requests</small></span>

@@ -2193,3 +2193,35 @@ body { background: #f4f2ec; color: var(--ink); }
     opacity: 1;
   }
 }
+/* BookSpins 2.1: extend the existing catalogue and shelf styles. */
+.discovery-book { min-width: 0; position: relative; }
+.home-book.discovery-book { flex: 0 0 180px; white-space: normal; }
+.discovery-copy { min-width: 0; overflow-wrap: anywhere; }
+.discovery-copy p { margin: 6px 0; font-size: .8rem; }
+.book-open { border: 0; padding: 0; cursor: pointer; }
+.book-title { border: 0; background: transparent; padding: 0; color: inherit; text-align: left; font: inherit; font-weight: 750; min-height: 44px; overflow-wrap: anywhere; }
+.save-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 88px; min-height: 44px; padding: 9px 12px; border: 1px solid #c9d5cd; border-radius: 12px; background: #fff; color: #24583d; cursor: pointer; }
+.save-button[aria-pressed="true"] { background: #e6f2e9; }
+.save-button:disabled { opacity: .6; cursor: wait; }
+.save-feedback { display: block; font-size: .75rem; margin-top: 4px; }
+.recommendation-reason { color: #345740; line-height: 1.45; }
+.discovery-dialog { width: min(720px, calc(100vw - 28px)); max-width: calc(100vw - 28px); max-height: 88dvh; padding: 28px; border: 0; border-radius: 24px; color: #19382b; overflow-y: auto; overflow-wrap: anywhere; }
+.discovery-dialog::backdrop { background: rgb(12 30 22 / .65); }
+.discovery-dialog .dialog-image { max-height: 280px; }
+.discovery-dialog .dialog-image img { max-height: 280px; object-fit: contain; }
+.discovery-dialog .dialog-close { position: absolute; top: 8px; right: 8px; min-width: 44px; min-height: 44px; font-size: 26px; z-index: 1; }
+.discovery-dialog .book-detail-copy { padding-top: 16px; }
+.discovery-dialog .request-book-btn { margin-top: 12px; }
+.discovery-book .back-link { min-height: 44px; margin: 0; }
+.discovery-book .status-pill { display: table; }
+.ai-thread .discovery-book { width: 100%; box-sizing: border-box; }
+button:focus-visible { outline: 3px solid #34704d; outline-offset: 3px; }
+@media (max-width: 430px) { .discovery-dialog { padding: 20px; } .home-book.discovery-book { flex-basis: 160px; } }
+@media (min-width: 1024px) { .compact-book-list:has(.discovery-book) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; } }
+.discovery-dialog .dialog-image { min-height: 180px; }
+@media (max-width: 430px) { .home-hero .hero-orbit { display: none; } }
+@media (min-width: 720px) and (max-width: 1023px) { .home-book-row { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 24px; } }
+.request-card:focus, .owner-book-card:focus { outline: 3px solid #34704d; outline-offset: 3px; }
+.discovery-dialog .dialog-image { background: #eae7df; color: var(--moss); border-radius: 16px; }
+.discovery-dialog .primary-btn { background: var(--forest); }
+@media (min-width: 768px) { .find-page .filter-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

@@ -1,57 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaBookOpen, FaCheckCircle, FaFilter, FaGraduationCap, FaLayerGroup, FaSearch } from "react-icons/fa";
-import API from "../api/api";
+import { FaFilter, FaSearch } from "react-icons/fa";
+import BookCard from "../components/BookCard";
+import { useDiscovery } from "../context/DiscoveryContext";
+import { readLocal, writeLocal } from "../utils/discovery";
 import { useUser } from "../context/UserContext";
-import { DEMO_BOOKS } from "../data/DemoData";
-import { getBookImageUrl } from "../utils/bookImages";
-import { formatGrade, gradeSortValue } from "../utils/grades";
+import { GRADE_OPTIONS, gradeSortValue } from "../utils/grades";
 
 function Find() {
-  const { demoMode } = useUser();
-  const [books, setBooks] = useState([]);
-  const [query, setQuery] = useState("");
-  const [grade, setGrade] = useState("");
-  const [subject, setSubject] = useState("");
-  const [availability, setAvailability] = useState("available");
-  const [sortBy, setSortBy] = useState("newest");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const timeout = setTimeout(async () => {
-      setIsLoading(true);
-      setError("");
-
-      try {
-        if (demoMode) {
-          setBooks(DEMO_BOOKS);
-          return;
-        }
-        let endpoint = "/books";
-        const trimmedQuery = query.trim();
-
-        if (trimmedQuery) {
-          endpoint = `/books/search?keyword=${encodeURIComponent(trimmedQuery)}`;
-        }
-
-        const response = await API.get(endpoint, { signal: controller.signal });
-        setBooks(response.data);
-      } catch (requestError) {
-        if (requestError.code !== "ERR_CANCELED") {
-          setBooks([]);
-          setError(requestError.response?.data?.detail || "Could not load books.");
-        }
-      } finally {
-        if (!controller.signal.aborted) setIsLoading(false);
-      }
-    }, 300);
-
-    return () => {
-      clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [demoMode, query]);
+  const { user, demoMode } = useUser();
+  const key = 'bookspins:find:' + (demoMode ? 'demo' : user.id);
+  const [initial] = useState(() => readLocal(key, {}));
+  const { books, loading: isLoading, error } = useDiscovery();
+  const [query, setQuery] = useState(typeof initial?.query === 'string' ? initial.query : '');
+  const [grade, setGrade] = useState(typeof initial?.grade === 'string' ? initial.grade : '');
+  const [subject, setSubject] = useState(typeof initial?.subject === 'string' ? initial.subject : '');
+  const [availability, setAvailability] = useState(initial?.availability ?? 'available');
+  const [sortBy, setSortBy] = useState(initial?.sortBy ?? 'newest');
+  useEffect(() => { writeLocal(key, { query: query.slice(0, 120), grade, subject, availability, sortBy }); }, [key, query, grade, subject, availability, sortBy]);
 
   const filteredBooks = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -63,7 +28,7 @@ function Find() {
         book.title.toLowerCase().includes(normalizedQuery) ||
         book.subject.toLowerCase().includes(normalizedQuery);
       const matchesGrade =
-        !normalizedGrade || book.grade.toLowerCase().includes(normalizedGrade);
+        !normalizedGrade || String(book.grade).toLowerCase() === normalizedGrade;
       const matchesSubject = !subject || book.subject.toLowerCase() === subject.toLowerCase();
       const matchesAvailability = !availability || book.status === availability;
 
@@ -98,6 +63,7 @@ function Find() {
           <input
             type="search"
             name="find-query"
+            aria-label="Search title or subject"
             placeholder="Search title or subject"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -110,16 +76,7 @@ function Find() {
         <div className="filter-row">
           <label>
             <span>Grade</span>
-            <input
-              type="text"
-              name="find-grade"
-              placeholder="e.g. 10"
-              value={grade}
-              onChange={(event) => setGrade(event.target.value)}
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
+            <select name="find-grade" value={grade} onChange={(event) => setGrade(event.target.value)}><option value="">All grades</option>{GRADE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
           </label>
           <label>
             <span>Subject</span>
@@ -156,23 +113,7 @@ function Find() {
       )}
 
       <div className="compact-book-list">
-        {filteredBooks.map((book) => (
-          <article className="compact-book-card" key={book.id}>
-            <div className="book-thumb">
-              {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} loading="lazy" /> : <FaBookOpen />}
-              <span className={`mini-status ${book.status}`}><FaCheckCircle aria-hidden="true" /></span>
-            </div>
-            <div>
-              <h2>{book.title}</h2>
-              <div className="tag-row">
-                <span><FaLayerGroup aria-hidden="true" /> {book.subject}</span>
-                <span><FaGraduationCap aria-hidden="true" /> {formatGrade(book.grade)}</span>
-                <span>{book.condition}</span>
-                <span className={`status-pill ${book.status}`}>{book.status}</span>
-              </div>
-            </div>
-          </article>
-        ))}
+        {filteredBooks.map((book) => <BookCard key={book.id} book={book} />)}
       </div>
     </div>
   );

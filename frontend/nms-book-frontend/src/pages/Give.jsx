@@ -107,6 +107,7 @@ function Give() {
       if (imageFile) formData.append("image", imageFile);
 
       await API.post("/books", formData);
+      window.dispatchEvent(new Event("bookspins:catalog-updated"));
 
       setMessage("Your book is ready for its second spin."); setIsComplete(true);
       resetForm();

@@ -16,10 +16,10 @@ function formatSummaryTime(value) {
     : { month: "short", day: "numeric" }).format(date);
 }
 
-function Messages() {
+function Messages({ initialConversation }) {
   const { demoMode, user } = useUser();
   const [conversations, setConversations] = useState([]);
-  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [selectedConversation, setSelectedConversation] = useState(initialConversation || null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 

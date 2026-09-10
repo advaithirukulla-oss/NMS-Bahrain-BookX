@@ -3,9 +3,11 @@ import { FaUser, FaBookOpen, FaPlusCircle, FaSearch, FaClipboardList, FaBell } f
 import API from "./api/api";
 import { useUser } from "./context/UserContext";
 import { getDemoNotifications } from "./data/DemoData";
+import { DiscoveryProvider } from "./context/DiscoveryContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
+const SavedBooks = lazy(() => import("./pages/SavedBooks"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Take = lazy(() => import("./pages/Take"));
 const Give = lazy(() => import("./pages/Give"));
@@ -49,9 +51,10 @@ function App() {
   const { demoMode, isAuthenticated, user } = useUser();
   const [authMode, setAuthMode] = useState("login");
   const [activeTab, setActiveTab] = useState("home");
+  const [destination, setDestination] = useState(null);
   const [notificationCount, setNotificationCount] = useState(0);
 
-  const navigate = useCallback((tab) => setActiveTab(tab), []);
+  const navigate = useCallback((tab, detail = null) => { setDestination(detail); setActiveTab(tab); }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -88,21 +91,22 @@ function App() {
   }, [isAuthenticated]);
 
   const page = useMemo(() => {
+    if (activeTab === "saved") return <SavedBooks />;
     if (activeTab === "home") return <Home onNavigate={navigate} />;
     if (activeTab === "profile") return <Profile notificationCount={notificationCount} onNavigate={navigate} />;
     if (activeTab === "take") return <Take />;
     if (activeTab === "give") return <Give />;
     if (activeTab === "find") return <Find />;
-    if (activeTab === "messages") return <Messages />;
+    if (activeTab === "messages") return <Messages initialConversation={destination?.conversation} />;
     if (activeTab === "ai") return <AIBookFinder onBack={() => navigate("profile")} />;
     if (activeTab === "admin") return <AdminDashboard onBack={() => navigate("profile")} />;
     if (activeTab === "leaderboard") return <Leaderboard onBack={() => navigate("profile")} />;
     if (activeTab === "terms") return <Terms onBack={() => navigate("profile")} />;
-    if (activeTab === "requests") return <RequestsPage onBack={() => navigate("profile")} />;
-    if (activeTab === "my-books") return <MyBooks onBack={() => navigate("profile")} />;
-    if (activeTab === "notifications") return <Notifications onBack={() => navigate("profile")} />;
+    if (activeTab === "requests") return <RequestsPage selectedRequestId={destination?.request_id} onBack={() => navigate("profile")} />;
+    if (activeTab === "my-books") return <MyBooks selectedBookId={destination?.book_id} onBack={() => navigate("profile")} />;
+    if (activeTab === "notifications") return <Notifications onNavigate={navigate} onBack={() => navigate("profile")} />;
     return <Home onNavigate={navigate} />;
-  }, [activeTab, navigate, notificationCount]);
+  }, [activeTab, navigate, notificationCount, destination]);
 
   if (!isAuthenticated) {
     if (authMode === "login") {
@@ -113,7 +117,7 @@ function App() {
   }
 
   return (
-    <div className="app">
+    <DiscoveryProvider><div className="app" data-version="2.1">
       <header className="app-topbar">
         <button className="brand-lockup" type="button" onClick={() => navigate("home")} aria-label="Go to BookSpins home">
           <span className="brand-mark"><FaBookOpen aria-hidden="true" /></span>
@@ -139,7 +143,7 @@ function App() {
           );
         })}
       </nav>
-    </div>
+    </div></DiscoveryProvider>
   );
 }
 

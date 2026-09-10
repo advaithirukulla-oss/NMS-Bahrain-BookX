@@ -8,7 +8,7 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("en-BH", { dateStyle: "medium" }).format(new Date(value));
 }
 
-function RequestsPage({ onBack }) {
+function RequestsPage({ onBack, selectedRequestId }) {
   const { user, demoMode } = useUser();
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState("");
@@ -39,6 +39,8 @@ function RequestsPage({ onBack }) {
     return () => clearTimeout(timeout);
   }, [loadRequests]);
 
+  useEffect(() => { if (!isLoading && selectedRequestId) document.getElementById(`request-${selectedRequestId}`)?.focus(); }, [isLoading, selectedRequestId]);
+
   const cancelRequest = async (requestId) => {
     if (demoMode) {
       setRequests((current) => current.filter((request) => request.id !== requestId));
@@ -67,7 +69,7 @@ function RequestsPage({ onBack }) {
 
       <section className="request-list">
         {requests.map((request) => (
-          <article className="request-card" key={request.id}>
+          <article className="request-card" id={`request-${request.id}`} tabIndex={-1} key={request.id}>
             <div className="request-card-heading">
               <h2>{request.book_title}</h2>
               <span className={`status-pill ${request.status}`}>{request.status}</span>

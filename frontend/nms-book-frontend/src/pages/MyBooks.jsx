@@ -10,7 +10,7 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("en-BH", { dateStyle: "medium" }).format(new Date(value));
 }
 
-function MyBooks({ onBack }) {
+function MyBooks({ onBack, selectedBookId }) {
   const { user, demoMode } = useUser();
   const [books, setBooks] = useState([]);
   const [error, setError] = useState("");
@@ -41,6 +41,8 @@ function MyBooks({ onBack }) {
     return () => clearTimeout(timeout);
   }, [loadBooks]);
 
+  useEffect(() => { if (!isLoading && selectedBookId) document.getElementById(`owner-book-${selectedBookId}`)?.focus(); }, [isLoading, selectedBookId]);
+
   const updateRequest = async (requestId, status) => {
     if (demoMode) {
       setBooks((current) => current.map((book) => ({
@@ -53,6 +55,7 @@ function MyBooks({ onBack }) {
 
     try {
       await API.put(`/requests/${requestId}`, { status });
+      window.dispatchEvent(new Event("bookspins:catalog-updated"));
       await loadBooks();
     } catch (requestError) {
       setError(requestError.response?.data?.detail || "Could not update this request.");
@@ -73,7 +76,7 @@ function MyBooks({ onBack }) {
 
       <section className="owner-book-list">
         {books.map((book) => (
-          <article className="owner-book-card" key={book.id}>
+          <article className="owner-book-card" id={`owner-book-${book.id}`} tabIndex={-1} key={book.id}>
             <div className="request-card-heading">
               <div className="owner-book-summary">
                 <div className="book-thumb">

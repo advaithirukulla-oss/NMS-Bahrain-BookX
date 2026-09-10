@@ -1,48 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
-import { FaBookOpen, FaBolt, FaMagic, FaPaperPlane, FaRobot, FaTimes } from "react-icons/fa";
-import API from "../api/api";
+import { useMemo, useState } from "react";
+import { FaMagic, FaPaperPlane, FaRobot, FaTimes } from "react-icons/fa";
+import BookCard from "../components/BookCard";
+import { useDiscovery } from "../context/DiscoveryContext";
 import { useUser } from "../context/UserContext";
-import { DEMO_BOOKS } from "../data/DemoData";
 import { formatGrade } from "../utils/grades";
-import { getBookImageUrl } from "../utils/bookImages";
 
-const SUBJECTS = [
-  "biology", "chemistry", "physics", "science", "math", "mathematics",
-  "english", "arabic", "history", "geography", "computer", "ict",
-];
-
-function findIntent(query) {
-  const normalized = query.toLowerCase();
-  const gradeMatch = normalized.match(/(?:grade|class|year)\s*(\d{1,2})/i);
-  const subject = SUBJECTS.find((item) => normalized.includes(item));
-  const ignored = new Set(["i", "need", "a", "an", "the", "book", "looking", "for", "please", "want", "grade", "class", "year"]);
-  const keywords = normalized.split(/[^a-z0-9-]+/).filter((word) => word && !ignored.has(word));
-
-  return { grade: gradeMatch?.[1] || "", subject, keywords };
-}
+import { findIntent } from "../utils/finder";
 
 function AIBookFinder({ onBack }) {
-  const { demoMode } = useUser();
-  const [books, setBooks] = useState([]);
+  const { user } = useUser();
+  const { books, loading: isLoading, error } = useDiscovery();
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (demoMode) {
-      const timeout = setTimeout(() => {
-        setBooks(DEMO_BOOKS);
-        setIsLoading(false);
-      }, 0);
-      return () => clearTimeout(timeout);
-    }
-    API.get("/books")
-      .then((response) => setBooks(response.data))
-      .catch((requestError) => setError(requestError.response?.data?.detail || "Could not load books."))
-      .finally(() => setIsLoading(false));
-  }, [demoMode]);
-
   const matches = useMemo(() => {
     if (!submittedQuery) return [];
     const intent = findIntent(submittedQuery);
@@ -57,9 +26,9 @@ function AIBookFinder({ onBack }) {
 
         if (intent.subject && (subject.includes(intent.subject) || title.includes(intent.subject))) {
           score += 4;
-          reasons.push(`matches ${book.subject}`);
+          reasons.push(`matches ${intent.subject}`);
         }
-        if (intent.grade && grade.includes(intent.grade)) {
+        if (intent.grade && grade === intent.grade) {
           score += 3;
               reasons.push(`is for ${formatGrade(book.grade)}`);
         }
@@ -74,9 +43,9 @@ function AIBookFinder({ onBack }) {
 
         return { book, score, reasons: [...new Set(reasons)] };
       })
-      .filter((match) => match.score > 0 && match.book.status === "available")
+      .filter((match) => match.score > 0 && match.book.status === "available" && match.book.owner_id !== user.id && (!intent.grade || String(match.book.grade).toLowerCase() === intent.grade) && (!intent.subject || `${match.book.title} ${match.book.subject}`.toLowerCase().includes(intent.subject)))
       .sort((a, b) => b.score - a.score);
-  }, [books, submittedQuery]);
+  }, [books, submittedQuery, user.id]);
 
   const submitQuery = (event) => {
     event.preventDefault();
@@ -92,19 +61,19 @@ function AIBookFinder({ onBack }) {
     <div className="ai-page">
       <header className="ai-header">
         <div className="ai-avatar"><FaRobot /></div>
-        <div><strong>AI Book Finder</strong><span><FaMagic aria-hidden="true" /> Smart syllabus matching</span></div>
+        <div><strong>AI Book Finder</strong><span><FaMagic aria-hidden="true" /> Matches from real listings</span></div>
         <button type="button" onClick={onBack} aria-label="Close AI Book Finder"><FaTimes /></button>
       </header>
 
       <main className="ai-thread">
         <div className="assistant-message ai-bubble-with-icon">
           <span className="assistant-badge"><FaRobot aria-hidden="true" /></span>
-          <span><strong>What are you looking for?</strong><br />Tell me the title, subject, or grade you need and I’ll match it with available listings.</span>
+          <span><strong>What are you looking for?</strong><br />Tell me the title, subject, or grade you need. I match your words with real listings using grade and keyword rules.</span>
         </div>
 
         {!submittedQuery && (
           <div className="suggestion-row">
-            {["Science for Grade 7", "Easy English reading", "Something adventurous", "Math practice"].map((suggestion) => (
+            {["Science for Grade 7", "Easy English reading", "Books for KG 2", "Math practice"].map((suggestion) => (
               <button type="button" key={suggestion} onClick={() => chooseSuggestion(suggestion)}>{suggestion}</button>
             ))}
           </div>
@@ -119,19 +88,7 @@ function AIBookFinder({ onBack }) {
         {submittedQuery && !isLoading && matches.length > 0 && (
           <div className="assistant-message">I found {matches.length} available {matches.length === 1 ? "match" : "matches"}, ordered by relevance.</div>
         )}
-        {matches.map(({ book, reasons }) => (
-          <article className="ai-result-card" key={book.id}>
-            <div className="book-thumb small">
-              {book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} loading="lazy" /> : <FaBookOpen />}
-            </div>
-            <div>
-              <h2>{book.title}</h2>
-              <p>{book.subject} | {formatGrade(book.grade)}</p>
-              <strong><FaBolt aria-hidden="true" /> Why it matches:</strong>
-              <span>{reasons.length ? reasons.join(", ") : "title or subject keywords match your request"}.</span>
-            </div>
-          </article>
-        ))}
+        {matches.map(({ book, reasons }) => <BookCard key={book.id} book={book} reason={`Available on BookSpins · ${reasons.length ? reasons.join(", ") : "Matches your keywords"}`} />)}
       </main>
 
       <form className="ai-composer" onSubmit={submitQuery}>
