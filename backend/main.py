@@ -30,6 +30,7 @@ from pydantic import ValidationError
 import models
 import crud
 import exchanges
+import smart
 from exchange_migration import migrate_exchange_timestamps
 
 from database import engine, SessionLocal
@@ -190,6 +191,9 @@ async def add_request_logging(request: Request, call_next):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith("/smart/"):
+        logger.warning("Smart input validation failed on %s", request.url.path)
+        return JSONResponse(status_code=422, content={"detail": "Check your input: query and notes must be 500 characters or fewer; only supported text fields are accepted."})
     logger.warning("Validation error on %s: %s", request.url.path, exc.errors())
     return JSONResponse(
         status_code=422,
@@ -206,6 +210,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
+        headers=exc.headers,
     )
 
 
@@ -352,7 +357,7 @@ def home():
 def health_check():
     return {
         "status": "ok",
-        "release": "2.2",
+        "release": "2.3",
         "app": APP_NAME,
         "version": APP_VERSION,
         "environment": ENVIRONMENT
@@ -528,6 +533,24 @@ def get_books(
     books = crud.get_all_books(db)
 
     return books
+
+
+@app.get("/smart/capabilities")
+def smart_capabilities(current_user: models.User = Depends(get_current_user)):
+    return {"finder": "deterministic", "text_assist": True, "vision": False,
+            "image_message": "Image suggestions are unavailable. Add details below or continue manually."}
+
+
+@app.post("/smart/find")
+def smart_find(data: smart.FinderInput, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    smart.rate_limit(current_user.id)
+    return smart.find_books(db, current_user, data)
+
+
+@app.post("/smart/listing")
+def smart_listing(data: smart.ListingInput, current_user: models.User = Depends(get_current_user)):
+    smart.rate_limit(current_user.id)
+    return smart.listing_suggestions(data)
 
 @app.get("/books/search")
 def search_books(

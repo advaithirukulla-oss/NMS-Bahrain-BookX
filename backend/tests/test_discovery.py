@@ -16,12 +16,13 @@ from sqlalchemy.exc import IntegrityError
 import main
 import models
 from database import engine, SessionLocal
+from test_smart import SmartTestCases
 
 @event.listens_for(engine, 'connect')
 def foreign_keys(connection, _):
     connection.execute('PRAGMA foreign_keys=ON')
 
-class DiscoveryTests(unittest.TestCase):
+class DiscoveryTests(SmartTestCases, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client = TestClient(main.app)
