@@ -1,102 +1,49 @@
-import { useMemo, useState } from "react";
-import { FaMagic, FaPaperPlane, FaRobot, FaTimes } from "react-icons/fa";
+import { useEffect, useRef, useState } from "react";
+import { FaSearch, FaTimes } from "react-icons/fa";
+import API from "../api/api";
 import BookCard from "../components/BookCard";
 import { useDiscovery } from "../context/DiscoveryContext";
 import { useUser } from "../context/UserContext";
-import { formatGrade } from "../utils/grades";
+import { smartError } from "../utils/smart";
 
-import { findIntent } from "../utils/finder";
-
-function AIBookFinder({ onBack }) {
-  const { user } = useUser();
-  const { books, loading: isLoading, error } = useDiscovery();
+export default function AIBookFinder({ onBack }) {
+  const { recent } = useDiscovery();
+  const { demoMode } = useUser();
   const [query, setQuery] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
-  const matches = useMemo(() => {
-    if (!submittedQuery) return [];
-    const intent = findIntent(submittedQuery);
-
-    return books
-      .map((book) => {
-        const title = book.title.toLowerCase();
-        const subject = book.subject.toLowerCase();
-        const grade = String(book.grade).toLowerCase();
-        const reasons = [];
-        let score = 0;
-
-        if (intent.subject && (subject.includes(intent.subject) || title.includes(intent.subject))) {
-          score += 4;
-          reasons.push(`matches ${intent.subject}`);
-        }
-        if (intent.grade && grade === intent.grade) {
-          score += 3;
-              reasons.push(`is for ${formatGrade(book.grade)}`);
-        }
-        intent.keywords.forEach((keyword) => {
-          if (title.includes(keyword)) {
-            score += 2;
-            reasons.push(`title includes "${keyword}"`);
-          } else if (subject.includes(keyword)) {
-            score += 1;
-          }
-        });
-
-        return { book, score, reasons: [...new Set(reasons)] };
-      })
-      .filter((match) => match.score > 0 && match.book.status === "available" && match.book.owner_id !== user.id && (!intent.grade || String(match.book.grade).toLowerCase() === intent.grade) && (!intent.subject || `${match.book.title} ${match.book.subject}`.toLowerCase().includes(intent.subject)))
-      .sort((a, b) => b.score - a.score);
-  }, [books, submittedQuery, user.id]);
-
-  const submitQuery = (event) => {
-    event.preventDefault();
-    if (query.trim()) setSubmittedQuery(query.trim());
-  };
-
-  const chooseSuggestion = (suggestion) => {
-    setQuery(suggestion);
-    setSubmittedQuery(suggestion);
-  };
-
-  return (
-    <div className="ai-page">
-      <header className="ai-header">
-        <div className="ai-avatar"><FaRobot /></div>
-        <div><strong>AI Book Finder</strong><span><FaMagic aria-hidden="true" /> Matches from real listings</span></div>
-        <button type="button" onClick={onBack} aria-label="Close AI Book Finder"><FaTimes /></button>
-      </header>
-
-      <main className="ai-thread">
-        <div className="assistant-message ai-bubble-with-icon">
-          <span className="assistant-badge"><FaRobot aria-hidden="true" /></span>
-          <span><strong>What are you looking for?</strong><br />Tell me the title, subject, or grade you need. I match your words with real listings using grade and keyword rules.</span>
-        </div>
-
-        {!submittedQuery && (
-          <div className="suggestion-row">
-            {["Science for Grade 7", "Easy English reading", "Books for KG 2", "Math practice"].map((suggestion) => (
-              <button type="button" key={suggestion} onClick={() => chooseSuggestion(suggestion)}>{suggestion}</button>
-            ))}
-          </div>
-        )}
-
-        {submittedQuery && <div className="user-message">{submittedQuery}</div>}
-        {isLoading && <div className="assistant-message ai-loading"><span /><span /><span /> Checking the available books...</div>}
-        {error && <div className="assistant-message error">{error}</div>}
-        {submittedQuery && !isLoading && matches.length === 0 && (
-          <div className="assistant-message">I could not find a close match. Try adding a subject, grade, or title.</div>
-        )}
-        {submittedQuery && !isLoading && matches.length > 0 && (
-          <div className="assistant-message">I found {matches.length} available {matches.length === 1 ? "match" : "matches"}, ordered by relevance.</div>
-        )}
-        {matches.map(({ book, reasons }) => <BookCard key={book.id} book={book} reason={`Available on BookSpins · ${reasons.length ? reasons.join(", ") : "Matches your keywords"}`} />)}
-      </main>
-
-      <form className="ai-composer" onSubmit={submitQuery}>
-        <input name="ai-book-query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="What book do you need?" autoComplete="off" autoCorrect="off" spellCheck={false} aria-label="Book request" />
-        <button type="submit" disabled={!query.trim()} aria-label="Search"><FaPaperPlane /></button>
-      </form>
-    </div>
-  );
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const controller = useRef(null);
+  useEffect(() => () => controller.current?.abort(), []);
+  async function search(text) {
+    if (text.trim().length < 2) return;
+    controller.current?.abort();
+    const request = new AbortController(); controller.current = request;
+    setQuery(text); setBusy(true); setError(""); setResult(null);
+    try {
+      if (demoMode) { setError("Switch off Demo Mode to search the real BookSpins catalogue."); return; }
+      const { data } = await API.post("/smart/find", { query: text.trim(), recent_ids: recent.map(book => book.id) }, { timeout: 12000, signal: request.signal });
+      if (!request.signal.aborted) setResult(data);
+    } catch (failure) { if (!request.signal.aborted) setError(smartError(failure)); }
+    finally { if (!request.signal.aborted) setBusy(false); }
+  }
+  return <div className="page smart-finder">
+    <header className="page-heading"><div><p className="eyebrow">GROUNDED IN BOOKSPINS</p><h1>AI Book Finder</h1></div><button className="back-link" type="button" onClick={onBack} aria-label="Close AI Book Finder"><FaTimes /></button></header>
+    <p>Describe what you need. We match grades, subjects and words in real listings, with help from your saved and recently viewed books.</p>
+    <form className="smart-search form-card" onSubmit={event => { event.preventDefault(); search(query); }}>
+      <label htmlFor="smart-query">What would you like to read?</label>
+      <textarea id="smart-query" maxLength={500} rows={3} value={query} onChange={event => setQuery(event.target.value)} placeholder="I need an easy science book for Grade 7" />
+      <button className="primary-btn" disabled={busy || query.trim().length < 2}><FaSearch /> {busy ? "Checking the catalogue…" : "Find books"}</button>
+      <small>Uses catalogue matching. No external AI service receives your query.</small>
+    </form>
+    <div className="suggestion-row" aria-label="Search ideas">{["Science for Grade 7", "English books for KG 2", "Something adventurous", "Similar to books I saved", "Similar to recently viewed books"].map(text => <button type="button" disabled={busy} key={text} onClick={() => search(text)}>{text}</button>)}</div>
+    {busy && <p role="status">Finding real listings and checking their availability…</p>}
+    {error && <p role="alert" className="page-message">{error} Find, Give and your exchanges remain available.</p>}
+    {result && <section aria-live="polite"><h2>Real BookSpins listings</h2>
+      <p>{result.results.length ? `${result.results.length} matching listings. Open a book to check its latest availability.` : "No matching listings right now. Try another subject, grade or theme."}</p>
+      {result.note && <p>{result.note}</p>}
+      <div className="smart-results">{result.results.map(({ book, reason }) => <BookCard key={book.id} book={book} reason={reason} />)}</div>
+      {result.general_suggestions.length > 0 && <aside className="smart-general"><h2>General suggestions</h2><p>Ideas to guide your search — these are not BookSpins listings.</p>{result.general_suggestions.map(idea => <p key={idea}>{idea}</p>)}</aside>}
+    </section>}
+  </div>;
 }
-
-export default AIBookFinder;

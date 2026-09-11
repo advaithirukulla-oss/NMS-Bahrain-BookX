@@ -117,7 +117,7 @@ function App() {
   }
 
   return (
-    <DiscoveryProvider><div className="app" data-version="2.2">
+    <DiscoveryProvider><div className="app" data-version="2.3">
       <header className="app-topbar">
         <button className="brand-lockup" type="button" onClick={() => navigate("home")} aria-label="Go to BookSpins home">
           <span className="brand-mark"><FaBookOpen aria-hidden="true" /></span>

@@ -4,6 +4,8 @@ import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { validateBookForm } from "../utils/validation";
 import { GRADE_OPTIONS } from "../utils/grades";
+import SmartAssist from "../components/SmartAssist";
+import { applySuggestion } from "../utils/smart";
 
 function Give() {
   const { demoMode, user } = useUser();
@@ -133,6 +135,10 @@ function Give() {
       {isComplete ? <section className="spin-success" role="status"><span><FaCheckCircle /></span><div><p className="eyebrow">LISTING CREATED</p><h2>{message}</h2><p>Thanks for making another student’s search easier.</p><div><button type="button" onClick={() => { setIsComplete(false); setMessage(""); }}>Give another book</button><button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Back to top <FaArrowRight /></button></div></div></section> : message && <p className="page-message error" role="alert">{message}</p>}
 
       {!isComplete && <form className="form-card give-form" autoComplete="off" onSubmit={postBook}>
+        <SmartAssist details={{ title, subject, grade, condition, description }} demoMode={demoMode} onApply={(field, value) => {
+          const next = applySuggestion({ title, subject, grade, condition, description }, field, value);
+          setTitle(next.title); setSubject(next.subject); setGrade(next.grade); setCondition(next.condition); setDescription(next.description);
+        }} />
         <section className="upload-section" aria-labelledby="book-image-label">
           <div className="field-heading"><span id="book-image-label">Book photo</span><small>Optional, but helps students find it faster</small></div>
           <div
