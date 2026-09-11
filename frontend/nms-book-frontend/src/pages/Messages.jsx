@@ -4,10 +4,11 @@ import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import ChatConversation from "./ChatConversation";
 import { getDemoMessageSummary } from "../data/DemoData";
+import { utcDate } from "../utils/exchanges";
 
 function formatSummaryTime(value) {
   if (!value) return "";
-  const date = new Date(value);
+  const date = utcDate(value);
   const today = new Date();
   const isToday = date.toDateString() === today.toDateString();
 

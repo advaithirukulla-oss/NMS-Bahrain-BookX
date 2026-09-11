@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { statusLabel, permittedActions, requestTimeline, eventDate } from '../src/utils/exchanges.js';
+import { statusLabel, permittedActions, requestTimeline, eventDate, utcDate } from '../src/utils/exchanges.js';
 
 test('stored states retain clear labels and closed exchanges expose no decision', () => {
   assert.equal(statusLabel('approved'), 'Accepted');
@@ -14,6 +14,11 @@ test('stored states retain clear labels and closed exchanges expose no decision'
     assert.deepEqual(permittedActions(state, true), []);
     assert.deepEqual(permittedActions(state, false), []);
   }
+});
+test('UTC database timestamps retain the same instant in chat and timelines', () => {
+  assert.equal(utcDate('2026-09-11T08:09:00').toISOString(), '2026-09-11T08:09:00.000Z');
+  assert.equal(utcDate('2026-09-11T08:09:00Z').toISOString(), '2026-09-11T08:09:00.000Z');
+  assert.equal(utcDate('2026-09-11T11:09:00+03:00').toISOString(), '2026-09-11T08:09:00.000Z');
 });
 test('timeline never fabricates historical acceptance or completion dates', () => {
   assert.deepEqual(requestTimeline({status: 'approved', request_date: '2026-01-01'}), [{status:'pending', at:'2026-01-01'}]);

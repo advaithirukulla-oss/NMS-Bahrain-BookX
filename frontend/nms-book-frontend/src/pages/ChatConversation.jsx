@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FaArrowLeft, FaPaperPlane, FaUserCircle } from "react-icons/fa";
 import { BookCover } from "../components/BookCard";
-import { statusLabel } from "../utils/exchanges";
+import { statusLabel, utcDate } from "../utils/exchanges";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { formatGrade } from "../utils/grades";
@@ -12,7 +12,7 @@ function formatMessageTime(value) {
   return new Intl.DateTimeFormat("en-BH", {
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(utcDate(value));
 }
 
 function ChatConversation({ conversationUser, onBack, onNavigate }) {

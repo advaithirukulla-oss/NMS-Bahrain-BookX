@@ -9,6 +9,9 @@ export function requestTimeline(request) {
 }
 export function eventDate(value) {
   if (!value) return "Date unavailable";
+  return new Intl.DateTimeFormat("en-BH", { dateStyle: "medium", timeStyle: "short" }).format(utcDate(value));
+}
+export function utcDate(value) {
   const utc = /Z$|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`;
-  return new Intl.DateTimeFormat("en-BH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(utc));
+  return new Date(utc);
 }
