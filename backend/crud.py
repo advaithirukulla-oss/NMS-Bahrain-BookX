@@ -105,49 +105,6 @@ def get_requests_by_user(db: Session, requester_id: int):
         BookRequest.requester_id == requester_id
     ).all()
 
-def update_request_status(
-    db: Session,
-    request_id: int,
-    status: str
-):
-
-    request = db.query(BookRequest).filter(
-        BookRequest.id == request_id
-    ).first()
-
-    if request:
-
-        previous_status = request.status
-        request.status = status
-
-        if status == "approved" and previous_status != "approved":
-
-            book = db.query(Book).filter(
-                Book.id == request.book_id
-            ).first()
-
-            if book:
-
-                book.status = "reserved"
-
-                db.query(BookRequest).filter(
-                    BookRequest.book_id == book.id,
-                    BookRequest.id != request.id,
-                    BookRequest.status == "pending"
-                ).update({"status": "rejected"})
-
-                owner = db.query(User).filter(
-                    User.id == book.owner_id
-                ).first()
-
-                if owner:
-                    owner.trust_points += 10
-
-        db.commit()
-        db.refresh(request)
-
-    return request
-
 def update_book_status(
     db: Session,
     book_id: int,

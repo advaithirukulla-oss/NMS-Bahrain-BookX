@@ -29,6 +29,8 @@ from pydantic import ValidationError
 
 import models
 import crud
+import exchanges
+from exchange_migration import migrate_exchange_timestamps
 
 from database import engine, SessionLocal
 from schemas import UserCreate, UserLogin
@@ -108,6 +110,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 def initialize_database():
     models.Base.metadata.create_all(bind=engine)
+    migrate_exchange_timestamps(engine)
 
     if "created_at" not in {
         column["name"] for column in inspect(engine).get_columns("messages")
@@ -349,7 +352,7 @@ def home():
 def health_check():
     return {
         "status": "ok",
-        "release": "2.1",
+        "release": "2.2",
         "app": APP_NAME,
         "version": APP_VERSION,
         "environment": ENVIRONMENT
@@ -582,7 +585,7 @@ def book_details(book_id: int, current_user: models.User = Depends(get_current_u
     requests = db.query(models.BookRequest).filter(models.BookRequest.book_id == book_id)
     if book.owner_id != current_user.id:
         requests = requests.filter(models.BookRequest.requester_id == current_user.id)
-    return {"book": book, "activity": [{"status": request.status, "created_at": request.created_at}
+    return {"book": book, "activity": [{"status": request.status, "created_at": request.created_at, "timeline": exchanges.timeline(request)}
             for request in requests.order_by(models.BookRequest.id.desc()).all()]}
 
 
@@ -593,42 +596,7 @@ def request_book(
     db: Session = Depends(get_db)
 ):
 
-    book = crud.get_book_by_id(
-        db,
-        request.book_id
-    )
-
-    if not book:
-        raise HTTPException(
-            status_code=404,
-            detail="Book not found."
-        )
-
-    if book.owner_id == current_user.id:
-        raise HTTPException(status_code=400, detail="You cannot request your own book.")
-
-    if book.status != "available":
-        raise HTTPException(
-            status_code=400,
-            detail="This book is no longer available."
-        )
-
-    existing = crud.existing_request(
-        db,
-        request.book_id,
-        current_user.id
-    )
-
-    if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="You have already requested this book."
-        )
-
-    created_request = crud.create_book_request(
-        db,
-        request.model_copy(update={"requester_id": current_user.id})
-    )
+    created_request = exchanges.create_request(db, request.book_id, current_user.id)
 
     return {
         "message": "Book request created",
@@ -693,9 +661,11 @@ def get_requests_for_user(
             "id": request.id,
             "book_id": book.id,
             "book_title": book.title,
+            "image_url": book.image_url, "book_status": book.status,
             "owner_id": owner.id,
             "owner_name": owner.name,
             "request_date": request.created_at,
+            **exchanges.event_times(request),
             "status": request.status
         }
         for request, book, owner in requests
@@ -742,6 +712,7 @@ def get_owner_books_with_requests(
                     "requester_id": requester.id,
                     "requester_name": requester.name,
                     "request_date": request.created_at,
+                    **exchanges.event_times(request),
                     "status": request.status
                 }
                 for request, requester in incoming
@@ -758,42 +729,31 @@ def update_request(
     db: Session = Depends(get_db)
 ):
 
-    if request_update.status not in ["approved", "rejected"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Status must be approved or rejected."
-        )
+    updated = exchanges.transition(db, request_id, current_user.id, request_update.status)
+    return {"message": "Request status updated", "request": updated}
 
-    existing_request = db.query(models.BookRequest).filter(models.BookRequest.id == request_id).first()
-    if not existing_request:
-        raise HTTPException(status_code=404, detail="Request not found.")
-    book = crud.get_book_by_id(db, existing_request.book_id)
-    if not book or (book.owner_id != current_user.id and current_user.role != "admin"):
-        raise HTTPException(status_code=403, detail="Only the book owner can update this request.")
-    if existing_request.status != "pending":
-        raise HTTPException(status_code=400, detail="Only pending requests can be updated.")
 
-    updated_request = crud.update_request_status(
-        db,
-        request_id,
-        request_update.status
-    )
+@app.post("/requests/{request_id}/complete")
+def complete_exchange(request_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    updated = exchanges.transition(db, request_id, current_user.id, "completed")
+    return {"message": "Another book got a second spin.", "request": updated}
 
-    if not updated_request:
-        raise HTTPException(
-            status_code=404,
-            detail="Request not found."
-        )
 
-    return {
-        "message": "Request status updated",
-        "request": {
-            "id": updated_request.id,
-            "book_id": updated_request.book_id,
-            "requester_id": updated_request.requester_id,
-            "status": updated_request.status
-        }
-    }
+@app.get("/exchanges/{request_id}")
+def exchange_details(request_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    request = db.query(models.BookRequest).filter_by(id=request_id).first()
+    if not request:
+        raise HTTPException(404, "Request not found.")
+    book = crud.get_book_by_id(db, request.book_id)
+    if current_user.id not in (book.owner_id, request.requester_id) and current_user.role != "admin":
+        raise HTTPException(403, "Only exchange participants can view this exchange.")
+    owner = crud.get_user_by_id(db, book.owner_id)
+    requester = crud.get_user_by_id(db, request.requester_id)
+    return {"id": request.id, "status": request.status, "book": book,
+            "owner": {"id": owner.id, "name": owner.name},
+            "requester": {"id": requester.id, "name": requester.name},
+            "timeline": exchanges.timeline(request)}
+
 
 @app.get("/leaderboard")
 def trust_leaderboard(
@@ -836,6 +796,10 @@ def admin_stats(
         "pending_requests": db.query(models.BookRequest).filter(
             models.BookRequest.status == "pending"
         ).count(),
+        "completed_requests": db.query(models.BookRequest).filter_by(status="completed").count(),
+        "declined_requests": db.query(models.BookRequest).filter_by(status="rejected").count(),
+        "cancelled_requests": db.query(models.BookRequest).filter_by(status="cancelled").count(),
+        "given_books": db.query(models.Book).filter_by(status="given").count(),
         "approved_requests": db.query(models.BookRequest).filter(
             models.BookRequest.status == "approved"
         ).count()
@@ -874,31 +838,8 @@ def cancel_request(
     db: Session = Depends(get_db)
 ):
 
-    request = db.query(models.BookRequest).filter(
-        models.BookRequest.id == request_id
-    ).first()
-
-    if not request:
-        raise HTTPException(
-            status_code=404,
-            detail="Request not found."
-        )
-
-    if request.status != "pending":
-        raise HTTPException(
-            status_code=400,
-            detail="Only pending requests can be cancelled."
-        )
-
-    if request.requester_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="You can only cancel your own requests.")
-
-    db.delete(request)
-    db.commit()
-
-    return {
-        "message": "Request cancelled successfully"
-    }
+    updated = exchanges.transition(db, request_id, current_user.id, "cancelled")
+    return {"message": "Request cancelled successfully", "request": updated}
 
 @app.get("/dashboard/{user_id}")
 def user_dashboard(
@@ -935,6 +876,10 @@ def user_dashboard(
         models.BookRequest.status == "approved"
     ).count()
 
+    books_given = db.query(models.BookRequest).join(models.Book).filter(
+        models.Book.owner_id == user_id, models.BookRequest.status == "completed").count()
+    books_received = db.query(models.BookRequest).filter_by(requester_id=user_id, status="completed").count()
+
     return {
         "user_id": user.id,
         "name": user.name,
@@ -944,6 +889,8 @@ def user_dashboard(
         "books_posted": books_posted,
         "books_requested": books_requested,
         "books_approved": books_approved,
+        "books_given": books_given, "books_received": books_received,
+        "completed_exchanges": books_given + books_received,
         "trust_points": user.trust_points
     }
 
@@ -958,53 +905,25 @@ def get_notifications(
         raise HTTPException(status_code=403, detail="You can only view your own notifications.")
     notifications = []
 
-    request_updates = db.query(
-        models.BookRequest,
-        models.Book
-    ).join(
-        models.Book,
-        models.BookRequest.book_id == models.Book.id
-    ).filter(
-        models.BookRequest.requester_id == user_id,
-        models.BookRequest.status.in_(["approved", "rejected"])
+    rows = db.query(models.BookRequest, models.Book).join(models.Book).filter(
+        (models.BookRequest.requester_id == user_id) | (models.Book.owner_id == user_id)
     ).all()
-
-    for request, book in request_updates:
-        notifications.append({
-            "id": f"request-update-{request.id}",
-            "type": f"book_{request.status}",
-            "target": "requests", "request_id": request.id, "book_id": book.id,
-            "title": "Request accepted" if request.status == "approved" else "Request declined",
-            "message": f'Your request for "{book.title}" was {"accepted" if request.status == "approved" else "declined"}.',
-            "created_at": request.created_at,
-            "is_unread": True
-        })
-
-    incoming_requests = db.query(
-        models.BookRequest,
-        models.Book,
-        models.User
-    ).join(
-        models.Book,
-        models.BookRequest.book_id == models.Book.id
-    ).join(
-        models.User,
-        models.BookRequest.requester_id == models.User.id
-    ).filter(
-        models.Book.owner_id == user_id,
-        models.BookRequest.status == "pending"
-    ).all()
-
-    for request, book, requester in incoming_requests:
-        notifications.append({
-            "id": f"incoming-request-{request.id}",
-            "type": "new_request",
-            "target": "my-books", "request_id": request.id, "book_id": book.id,
-            "title": "New book request",
-            "message": f'{requester.name} requested "{book.title}".',
-            "created_at": request.created_at,
-            "is_unread": True
-        })
+    labels = {"approved": "Request accepted", "rejected": "Request declined",
+              "cancelled": "Request cancelled", "completed": "Exchange completed"}
+    for request, book in rows:
+        owner_view = book.owner_id == user_id
+        if request.status == "pending" and owner_view:
+            requester = crud.get_user_by_id(db, request.requester_id)
+            notifications.append({"id": f"incoming-request-{request.id}", "type": "new_request",
+                "target": "my-books", "request_id": request.id, "book_id": book.id,
+                "title": "New book request", "message": f'{requester.name} requested "{book.title}".',
+                "created_at": request.created_at, "is_unread": True})
+        if request.status in labels and (not owner_view or request.status in ("cancelled", "completed")):
+            field = {"approved": "accepted_at", "rejected": "declined_at", "cancelled": "cancelled_at", "completed": "completed_at"}[request.status]
+            notifications.append({"id": f"request-{request.id}-{request.status}", "type": f"book_{request.status}",
+                "target": "my-books" if owner_view else "requests", "request_id": request.id, "book_id": book.id,
+                "title": labels[request.status], "message": f'{labels[request.status]}: "{book.title}".',
+                "created_at": getattr(request, field), "is_unread": True})
 
     unread_messages = db.query(
         models.Message,

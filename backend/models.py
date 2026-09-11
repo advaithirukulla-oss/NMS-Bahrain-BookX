@@ -60,6 +60,11 @@ class BookRequest(Base):
 
     status = Column(String(30), default="pending")
 
+    accepted_at = Column(DateTime, nullable=True)
+    declined_at = Column(DateTime, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
     created_at = Column(
         DateTime,
         nullable=False,

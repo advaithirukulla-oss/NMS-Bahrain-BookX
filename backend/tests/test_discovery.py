@@ -129,4 +129,105 @@ class DiscoveryTests(unittest.TestCase):
         image_path = main.UPLOAD_DIR / Path(upload.json()['book']['image_url']).name
         image_path.unlink()
 
+
+    def exchange_book(self):
+        response = self.client.post('/books', headers=self.headers[0], json=dict(title='Exchange test', subject='Science', grade='7', condition='Good', description='Disposable lifecycle listing.', is_syllabus_book=True))
+        self.assertEqual(response.status_code, 200)
+        return response.json()['book']['id']
+
+    def exchange_request(self, book_id, actor=1):
+        response = self.client.post('/requests', headers=self.headers[actor], json={'book_id': book_id, 'requester_id': self.users[0]})
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()['request_id']
+
+    def test_05_completion_security_and_counts(self):
+        book = self.exchange_book()
+        req = self.exchange_request(book)
+        other = self.exchange_request(book, 2)
+        path = f'/requests/{req}'
+        self.assertEqual(self.client.post(path + '/complete', headers=self.headers[0]).status_code, 400)
+        self.assertEqual(self.client.put(path, headers=self.headers[1], json={'status': 'approved'}).status_code, 403)
+        self.assertEqual(self.client.get(f'/exchanges/{req}', headers=self.headers[2]).status_code, 403)
+        before = self.client.get(f'/dashboard/{self.users[0]}', headers=self.headers[0]).json()
+        self.assertEqual(self.client.put(path, headers=self.headers[0], json={'status': 'approved'}).status_code, 200)
+        self.assertEqual(self.client.put(f'/requests/{other}', headers=self.headers[0], json={'status': 'approved'}).status_code, 400)
+        self.assertEqual(self.client.delete(path, headers=self.headers[1]).status_code, 400)
+        self.assertEqual(self.client.post(path + '/complete', headers=self.headers[2]).status_code, 403)
+        self.assertEqual(self.client.post(path + '/complete', headers=self.headers[1]).status_code, 403)
+        self.client.post(f'/saved-books/{book}', headers=self.headers[1])
+        self.assertEqual(self.client.post(path + '/complete', headers=self.headers[0], json={'requester_id': self.users[2]}).status_code, 200)
+        self.assertEqual(self.client.post(path + '/complete', headers=self.headers[0]).status_code, 400)
+        self.assertEqual(self.client.post('/requests', headers=self.headers[2], json={'book_id': book}).status_code, 400)
+        detail = self.client.get(f'/exchanges/{req}', headers=self.headers[1]).json()
+        self.assertEqual(detail['book']['status'], 'given')
+        self.assertEqual([e['status'] for e in detail['timeline']], ['pending', 'approved', 'completed'])
+        self.assertTrue(all(e['at'] for e in detail['timeline']))
+        saved = self.client.get('/saved-books', headers=self.headers[1]).json()
+        self.assertEqual(next(b for b in saved if b['id'] == book)['status'], 'given')
+        after = self.client.get(f'/dashboard/{self.users[0]}', headers=self.headers[0]).json()
+        self.assertEqual(after['books_given'], before['books_given'] + 1)
+        self.assertEqual(after['trust_points'], before['trust_points'] + 10)
+        received = self.client.get(f'/dashboard/{self.users[1]}', headers=self.headers[1]).json()
+        self.assertGreaterEqual(received['books_received'], 1)
+        for actor in (0, 1):
+            notes = self.client.get(f'/notifications/{self.users[actor]}', headers=self.headers[actor]).json()['notifications']
+            completed = [n for n in notes if n.get('request_id') == req and n['type'] == 'book_completed']
+            self.assertEqual(len(completed), 1)
+            self.assertEqual(completed[0]['created_at'], detail['timeline'][-1]['at'])
+
+    def test_06_cancel_decline_and_repeat(self):
+        book = self.exchange_book()
+        req = self.exchange_request(book)
+        self.assertEqual(self.client.delete(f'/requests/{req}', headers=self.headers[2]).status_code, 403)
+        self.assertEqual(self.client.delete(f'/requests/{req}', headers=self.headers[1]).status_code, 200)
+        self.assertEqual(self.client.delete(f'/requests/{req}', headers=self.headers[1]).status_code, 400)
+        detail = self.client.get(f'/exchanges/{req}', headers=self.headers[1]).json()
+        self.assertEqual(detail['status'], 'cancelled')
+        new_req = self.exchange_request(book)
+        self.assertNotEqual(new_req, req)
+        self.assertEqual(self.client.put(f'/requests/{new_req}', headers=self.headers[0], json={'status': 'rejected'}).status_code, 200)
+        self.assertEqual(self.client.put(f'/requests/{new_req}', headers=self.headers[0], json={'status': 'approved'}).status_code, 400)
+        self.assertEqual(self.client.post(f'/requests/{new_req}/complete', headers=self.headers[0]).status_code, 400)
+
+    def test_07_conflicting_acceptance(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        book = self.exchange_book()
+        ids = [self.exchange_request(book, actor) for actor in (1, 2)]
+        barrier = Barrier(2)
+        def accept(request_id):
+            barrier.wait(timeout=5)
+            return self.client.put(f'/requests/{request_id}', headers=self.headers[0], json={'status': 'approved'}).status_code
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            codes = list(pool.map(accept, ids))
+        self.assertEqual(sorted(codes), [200, 400])
+        with SessionLocal() as db:
+            rows = db.query(models.BookRequest).filter_by(book_id=book).all()
+            self.assertEqual(sorted(r.status for r in rows), ['approved', 'rejected'])
+
+    def test_08_concurrent_duplicate_creation(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        book = self.exchange_book()
+        barrier = Barrier(2)
+        def create(_):
+            barrier.wait(timeout=5)
+            return self.client.post('/requests', headers=self.headers[1], json={'book_id': book}).status_code
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            codes = list(pool.map(create, range(2)))
+        self.assertEqual(sorted(codes), [200, 400])
+
+    def test_09_additive_timestamp_migration(self):
+        from exchange_migration import migrate_exchange_timestamps
+        legacy = create_engine('sqlite:///' + str(Path(TEMP.name) / 'pre22.db').replace('\\', '/'))
+        with legacy.begin() as connection:
+            connection.execute(text('CREATE TABLE book_requests (id INTEGER PRIMARY KEY, status VARCHAR(30), created_at DATETIME)'))
+            connection.execute(text("INSERT INTO book_requests VALUES (1, 'approved', '2026-01-01')"))
+        migrate_exchange_timestamps(legacy)
+        migrate_exchange_timestamps(legacy)
+        with legacy.connect() as connection:
+            row = connection.execute(text('SELECT * FROM book_requests')).one()
+            self.assertEqual(tuple(row), (1, 'approved', '2026-01-01', None, None, None, None))
+        legacy.dispose()
+
 if __name__ == '__main__': unittest.main(verbosity=2)
