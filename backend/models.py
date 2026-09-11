@@ -17,6 +17,7 @@ class User(Base):
     role = Column(String(20), default="student")
 
     trust_points = Column(Integer, default=0)
+    account_status = Column(String(20), default="active", nullable=False)
 
 
 class Book(Base):
@@ -34,6 +35,7 @@ class Book(Base):
     description = Column(String(500))
 
     status = Column(String(30), default="available")
+    moderation_status = Column(String(20), default="active", nullable=False)
 
     is_syllabus_book = Column(Integer, default=1)
 
@@ -100,3 +102,41 @@ class Message(Base):
         nullable=False,
         server_default=func.now()
     )
+
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    report_type = Column(String(20), nullable=False)  # book or user
+    book_id = Column(Integer, ForeignKey("books.id"), nullable=True, index=True)
+    reported_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    reason = Column(String(50), nullable=False)
+    note = Column(String(300), nullable=True)
+    status = Column(String(20), default="open", nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
+class UserBlock(Base):
+    __tablename__ = "user_blocks"
+    __table_args__ = (UniqueConstraint("blocker_id", "blocked_id", name="uq_user_block"),)
+
+    id = Column(Integer, primary_key=True)
+    blocker_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    blocked_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+
+    id = Column(Integer, primary_key=True)
+    admin_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    action_type = Column(String(50), nullable=False)
+    target_type = Column(String(30), nullable=False)
+    target_id = Column(Integer, nullable=False, index=True)
+    metadata_json = Column(String(300), nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())

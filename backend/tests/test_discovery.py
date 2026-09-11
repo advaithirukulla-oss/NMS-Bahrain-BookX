@@ -47,7 +47,7 @@ class DiscoveryTests(SmartTestCases, unittest.TestCase):
 
     def test_01_additive_schema_and_auth(self):
         tables = inspect(engine).get_table_names()
-        self.assertEqual(set(tables), {'users', 'books', 'book_requests', 'messages', 'saved_books'})
+        self.assertEqual(set(tables), {'users', 'books', 'book_requests', 'messages', 'saved_books', 'reports', 'user_blocks', 'admin_audit_logs'})
         main.initialize_database()
         self.assertEqual(self.book['owner_id'], self.users[0])
         for method, path in [('get', '/saved-books'), ('post', f'/saved-books/{self.book["id"]}'), ('delete', f'/saved-books/{self.book["id"]}'), ('get', f'/books/{self.book["id"]}')]:
@@ -230,5 +230,28 @@ class DiscoveryTests(SmartTestCases, unittest.TestCase):
             row = connection.execute(text('SELECT * FROM book_requests')).one()
             self.assertEqual(tuple(row), (1, 'approved', '2026-01-01', None, None, None, None))
         legacy.dispose()
+
+    def test_10_safety_moderation_and_privacy(self):
+        with SessionLocal() as db:
+            db.query(models.User).filter_by(id=self.users[2]).update({'role': 'admin'})
+            db.commit()
+        book = self.client.post('/books', headers=self.headers[0], json=dict(title='Moderation Science', subject='Science', grade='7', condition='Good', description='A safe school science book.', is_syllabus_book=True)).json()['book']
+        self.assertEqual(self.client.post(f'/reports/books/{book["id"]}', headers=self.headers[0], json={'reason': 'spam'}).status_code, 400)
+        report = self.client.post(f'/reports/books/{book["id"]}', headers=self.headers[1], json={'reason': 'wrong_details'}).json()
+        self.assertEqual(self.client.post(f'/reports/users/{self.users[1]}', headers=self.headers[1], json={'reason': 'spam'}).status_code, 400)
+        self.assertEqual(self.client.post(f'/reports/users/{self.users[0]}', headers=self.headers[1], json={'reason': 'other'}).status_code, 422)
+        self.assertEqual(self.client.get('/admin/reports', headers=self.headers[1]).status_code, 403)
+        self.assertEqual(self.client.patch(f'/admin/reports/{report["report_id"]}', headers=self.headers[2], json={'status': 'reviewed'}).status_code, 200)
+        self.assertEqual(self.client.patch(f'/admin/books/{book["id"]}/moderation', headers=self.headers[2], json={'status': 'hidden'}).status_code, 200)
+        self.assertNotIn(book['id'], [item['id'] for item in self.client.get('/books', headers=self.headers[1]).json()])
+        self.assertEqual(self.client.patch(f'/admin/books/{book["id"]}/moderation', headers=self.headers[2], json={'status': 'active'}).status_code, 200)
+        self.assertEqual(self.client.post(f'/blocks/{self.users[0]}', headers=self.headers[1]).status_code, 200)
+        self.assertEqual(self.client.post('/requests', headers=self.headers[1], json={'book_id': book['id']}).status_code, 403)
+        self.assertEqual(self.client.post('/messages', headers=self.headers[1], json={'receiver_id': self.users[0], 'message_text': 'Blocked message'}).status_code, 403)
+        self.assertEqual(self.client.delete(f'/blocks/{self.users[0]}', headers=self.headers[1]).status_code, 200)
+        self.assertEqual(self.client.post('/requests', headers=self.headers[1], json={'book_id': book['id']}).status_code, 200)
+        self.assertEqual(self.client.patch(f'/admin/users/{self.users[1]}/status', headers=self.headers[2], json={'status': 'suspended'}).status_code, 200)
+        self.assertEqual(self.client.post('/smart/find', headers=self.headers[1], json={'query': 'science'}).status_code, 403)
+        self.assertGreater(self.client.get('/admin/audit', headers=self.headers[2]).json()[0]['id'], 0)
 
 if __name__ == '__main__': unittest.main(verbosity=2)

@@ -7,6 +7,8 @@ const RULES = [
   "All messages must be respectful.",
   "Fake or misleading posts can be removed by an admin.",
   "Books are for giveaway or exchange only. Selling and payments are not allowed.",
+  "Arrange exchanges through appropriate school locations and follow school rules.",
+  "Do not share personal contact information in BookSpins messages.",
 ];
 
 function Terms({ onBack }) {

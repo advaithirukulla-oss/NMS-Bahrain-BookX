@@ -6,6 +6,7 @@ import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { formatGrade } from "../utils/grades";
 import { DEMO_MESSAGES } from "../data/DemoData";
+import { UserSafetyActions } from "../components/SafetyActions";
 
 function formatMessageTime(value) {
   if (!value) return "";
@@ -23,6 +24,11 @@ function ChatConversation({ conversationUser, onBack, onNavigate }) {
   const [isSending, setIsSending] = useState(false);
   const endRef = useRef(null);
   const [exchange, setExchange] = useState(null);
+  const [messagingAllowed, setMessagingAllowed] = useState(true);
+  useEffect(() => {
+    if (demoMode) return;
+    API.get(`/interactions/${conversationUser.user_id}`).then(({ data }) => setMessagingAllowed(data.messaging_allowed)).catch(() => setMessagingAllowed(false));
+  }, [conversationUser.user_id, demoMode]);
   useEffect(() => {
     if (!conversationUser.exchange_id || demoMode) return;
     let live = true;
@@ -111,6 +117,9 @@ function ChatConversation({ conversationUser, onBack, onNavigate }) {
         </div>
       </header>
 
+      <UserSafetyActions userId={conversationUser.user_id} />
+      <p className="exchange-safety-note">Keep exchanges on appropriate school grounds. Do not share personal contact information.</p>
+
       {exchange && <aside className="exchange-chat-context"><div className="book-thumb"><BookCover book={exchange.book} /></div><div><strong>{exchange.book.title}</strong><p>{statusLabel(exchange.status)} · Exchange with {conversationUser.name}</p><button type="button" className="back-link" onClick={() => onNavigate(exchange.owner.id === user.id ? "my-books" : "requests", { book_id: exchange.book.id, request_id: exchange.id })}>View exchange</button></div></aside>}
       <main className="message-thread">
         {error && <p className="form-message error" role="alert">{error}</p>}
@@ -129,6 +138,7 @@ function ChatConversation({ conversationUser, onBack, onNavigate }) {
         <div ref={endRef} />
       </main>
 
+      {!messagingAllowed && <p className="exchange-safety-note" role="status">Messaging is unavailable for this conversation. Historic messages remain visible.</p>}
       <form className="message-composer" onSubmit={sendMessage}>
         <input
           type="text"
@@ -142,7 +152,7 @@ function ChatConversation({ conversationUser, onBack, onNavigate }) {
           maxLength="1000"
           aria-label="Message"
         />
-        <button type="submit" disabled={!messageText.trim() || isSending} aria-label="Send message">
+        <button type="submit" disabled={!messagingAllowed || !messageText.trim() || isSending} aria-label="Send message">
           <FaPaperPlane />
         </button>
       </form>

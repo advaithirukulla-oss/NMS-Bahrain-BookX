@@ -6,6 +6,7 @@ import { useUser } from "../context/UserContext";
 import { useDiscovery } from "../context/DiscoveryContext";
 import { getBookImageUrl } from "../utils/bookImages";
 import { formatGrade } from "../utils/grades";
+import { ReportButton } from "./SafetyActions";
 
 export function BookCover({ book }) {
   return book.image_url ? <img src={getBookImageUrl(book.image_url)} alt={`${book.title} cover`} loading="lazy" /> : <FaBookOpen aria-hidden="true" />;
@@ -68,7 +69,7 @@ export function BookDetails({ book, onClose }) {
     <button type="button" className="dialog-close" aria-label="Close book details" onClick={onClose}>×</button>
     <div className="dialog-image"><BookCover book={current} /></div>
     <div className="book-detail-copy"><h2 id={`detail-${book.id}`}>{current.title}</h2><p>{current.author || "Author not provided"}</p><div className="detail-chips"><span>{current.subject}</span><span>{formatGrade(current.grade)}</span><span>{current.condition}</span><span>{statusLabel(current.status)}</span></div><p>{current.description}</p>
-      {error ? <p role="alert">{error}</p> : !ready ? <p role="status">Checking availability…</p> : <><SaveButton book={current} /><RequestButton book={current} existingRequest={activity.some(item => item.status !== "cancelled")} onRequested={() => setActivity((items) => [{ status: "pending" }, ...items])} /><h3>Book activity</h3><ul><li>Listed</li>{activity.map((item, index) => <li key={index}>{statusLabel(item.status)}</li>)}</ul></>}
+      {error ? <p role="alert">{error}</p> : !ready ? <p role="status">Checking availability…</p> : <><SaveButton book={current} /><RequestButton book={current} existingRequest={activity.some(item => item.status !== "cancelled")} onRequested={() => setActivity((items) => [{ status: "pending" }, ...items])} /><ReportButton type="book" targetId={current.id} /><h3>Book activity</h3><ul><li>Listed</li>{activity.map((item, index) => <li key={index}>{statusLabel(item.status)}</li>)}</ul></>}
     </div>
   </dialog>;
 }

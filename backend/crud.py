@@ -365,7 +365,6 @@ def get_dm_summary(
         summary.append({
             "user_id": chat_user.id,
             "name": chat_user.name,
-            "email": chat_user.email,
             "grade": chat_user.grade,
             "section": chat_user.section,
             "last_message": last_message.message_text if last_message else "",

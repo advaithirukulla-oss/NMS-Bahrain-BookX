@@ -22,7 +22,13 @@ from schemas import (
     BookCreate,
     BookRequestCreate,
     BookRequestUpdate,
-    MessageCreate
+    MessageCreate,
+    ReportCreate,
+    ModerationUpdate,
+    AccountStatusUpdate,
+    BookModerationUpdate,
+    REPORT_BOOK_REASONS,
+    REPORT_USER_REASONS,
 )
 from fastapi import Query
 from pydantic import ValidationError
@@ -146,6 +152,15 @@ def initialize_database():
                 )
             )
 
+    additive_columns = {
+        "users": ("account_status", "VARCHAR(20) NOT NULL DEFAULT 'active'"),
+        "books": ("moderation_status", "VARCHAR(20) NOT NULL DEFAULT 'active'"),
+    }
+    for table_name, (column_name, definition) in additive_columns.items():
+        if column_name not in {column["name"] for column in inspect(engine).get_columns(table_name)}:
+            with engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}"))
+
 
 @app.on_event("startup")
 def startup_event():
@@ -249,7 +264,7 @@ def get_current_admin(
 
     user = crud.get_user_by_email(db, payload.get("sub"))
 
-    if not user or user.role != "admin":
+    if not user or user.role != "admin" or user.account_status != "active":
         raise HTTPException(status_code=403, detail="Admin access required.")
 
     return user
@@ -277,6 +292,23 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid or expired session.")
 
     return user
+
+
+def ensure_active(user: models.User):
+    if user.account_status != "active":
+        raise HTTPException(status_code=403, detail="This account is suspended. Please contact a school administrator.")
+
+
+def users_are_blocked(db: Session, first_id: int, second_id: int) -> bool:
+    return db.query(models.UserBlock).filter(
+        ((models.UserBlock.blocker_id == first_id) & (models.UserBlock.blocked_id == second_id))
+        | ((models.UserBlock.blocker_id == second_id) & (models.UserBlock.blocked_id == first_id))
+    ).first() is not None
+
+
+def audit(db: Session, admin_id: int, action: str, target_type: str, target_id: int, metadata: str | None = None):
+    db.add(models.AdminAuditLog(admin_user_id=admin_id, action_type=action, target_type=target_type,
+                                target_id=target_id, metadata_json=metadata))
 
 
 async def save_book_image(image: UploadFile | None) -> str | None:
@@ -357,7 +389,7 @@ def home():
 def health_check():
     return {
         "status": "ok",
-        "release": "2.3",
+        "release": "2.4",
         "app": APP_NAME,
         "version": APP_VERSION,
         "environment": ENVIRONMENT
@@ -495,6 +527,7 @@ async def create_book(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    ensure_active(current_user)
     book = await parse_book_create_request(request)
     book.owner_id = current_user.id
 
@@ -526,13 +559,13 @@ async def create_book(
 
 @app.get("/books")
 def get_books(
-    _current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
     books = crud.get_all_books(db)
 
-    return books
+    return books if current_user.role == "admin" else [book for book in books if book.moderation_status == "active"]
 
 
 @app.get("/smart/capabilities")
@@ -543,19 +576,21 @@ def smart_capabilities(current_user: models.User = Depends(get_current_user)):
 
 @app.post("/smart/find")
 def smart_find(data: smart.FinderInput, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ensure_active(current_user)
     smart.rate_limit(current_user.id)
     return smart.find_books(db, current_user, data)
 
 
 @app.post("/smart/listing")
 def smart_listing(data: smart.ListingInput, current_user: models.User = Depends(get_current_user)):
+    ensure_active(current_user)
     smart.rate_limit(current_user.id)
     return smart.listing_suggestions(data)
 
 @app.get("/books/search")
 def search_books(
     keyword: str = Query(...),
-    _current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
@@ -564,12 +599,13 @@ def search_books(
         keyword
     )
 
-    return books
+    return books if current_user.role == "admin" else [book for book in books if book.moderation_status == "active"]
 
 @app.get("/saved-books")
 def get_saved_books(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(models.Book).join(models.SavedBook, models.SavedBook.book_id == models.Book.id).filter(
-        models.SavedBook.user_id == current_user.id
+        models.SavedBook.user_id == current_user.id,
+        models.Book.moderation_status == "active"
     ).order_by(models.SavedBook.created_at.desc(), models.SavedBook.id.desc()).all()
 
 
@@ -604,6 +640,8 @@ def book_details(book_id: int, current_user: models.User = Depends(get_current_u
     book = crud.get_book_by_id(db, book_id)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found.")
+    if book.moderation_status != "active" and current_user.id != book.owner_id and current_user.role != "admin":
+        raise HTTPException(status_code=404, detail="Book not found.")
     # Request activity is private to the requester or the owner.
     requests = db.query(models.BookRequest).filter(models.BookRequest.book_id == book_id)
     if book.owner_id != current_user.id:
@@ -612,13 +650,92 @@ def book_details(book_id: int, current_user: models.User = Depends(get_current_u
             for request in requests.order_by(models.BookRequest.id.desc()).all()]}
 
 
+@app.post("/reports/books/{book_id}")
+def report_book(book_id: int, report: ReportCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ensure_active(current_user)
+    book = crud.get_book_by_id(db, book_id)
+    if not book:
+        raise HTTPException(404, "Book not found.")
+    if book.owner_id == current_user.id:
+        raise HTTPException(400, "You cannot report your own listing.")
+    if report.reason not in REPORT_BOOK_REASONS:
+        raise HTTPException(422, "Choose a valid book report reason.")
+    if report.reason == "other" and not report.note:
+        raise HTTPException(422, "Please add a short note for Other.")
+    created = models.Report(reporter_id=current_user.id, report_type="book", book_id=book_id,
+                            reported_user_id=book.owner_id, reason=report.reason, note=report.note)
+    db.add(created); db.commit(); db.refresh(created)
+    return {"report_id": created.id, "status": created.status}
+
+
+@app.post("/reports/users/{user_id}")
+def report_user(user_id: int, report: ReportCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ensure_active(current_user)
+    if user_id == current_user.id:
+        raise HTTPException(400, "You cannot report yourself.")
+    if not crud.get_user_by_id(db, user_id):
+        raise HTTPException(404, "User not found.")
+    if report.reason not in REPORT_USER_REASONS:
+        raise HTTPException(422, "Choose a valid user report reason.")
+    if report.reason == "other" and not report.note:
+        raise HTTPException(422, "Please add a short note for Other.")
+    created = models.Report(reporter_id=current_user.id, report_type="user", reported_user_id=user_id,
+                            reason=report.reason, note=report.note)
+    db.add(created); db.commit(); db.refresh(created)
+    return {"report_id": created.id, "status": created.status}
+
+
+@app.post("/blocks/{user_id}")
+def block_user(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ensure_active(current_user)
+    if user_id == current_user.id:
+        raise HTTPException(400, "You cannot block yourself.")
+    if not crud.get_user_by_id(db, user_id):
+        raise HTTPException(404, "User not found.")
+    if not db.query(models.UserBlock).filter_by(blocker_id=current_user.id, blocked_id=user_id).first():
+        db.add(models.UserBlock(blocker_id=current_user.id, blocked_id=user_id)); db.commit()
+    return {"blocked_user_id": user_id, "blocked": True}
+
+
+@app.delete("/blocks/{user_id}")
+def unblock_user(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    db.query(models.UserBlock).filter_by(blocker_id=current_user.id, blocked_id=user_id).delete()
+    db.commit()
+    return {"blocked_user_id": user_id, "blocked": False}
+
+
+@app.get("/blocks")
+def get_blocks(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return [{"id": block.blocked_id, "name": user.name, "grade": user.grade, "section": user.section}
+            for block, user in db.query(models.UserBlock, models.User).join(models.User, models.UserBlock.blocked_id == models.User.id)
+            .filter(models.UserBlock.blocker_id == current_user.id).all()]
+
+
+@app.get("/interactions/{user_id}")
+def interaction_status(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user_id == current_user.id:
+        raise HTTPException(400, "Choose another user.")
+    other = crud.get_user_by_id(db, user_id)
+    if not other:
+        raise HTTPException(404, "User not found.")
+    allowed = current_user.account_status == "active" and other.account_status == "active" and not users_are_blocked(db, current_user.id, user_id)
+    return {"blocked": not allowed, "messaging_allowed": allowed}
+
+
 @app.post("/requests")
 def request_book(
     request: BookRequestCreate,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-
+    ensure_active(current_user)
+    book = crud.get_book_by_id(db, request.book_id)
+    if not book:
+        raise HTTPException(404, "Book not found.")
+    if book.moderation_status != "active":
+        raise HTTPException(400, "This listing is not available.")
+    if users_are_blocked(db, current_user.id, book.owner_id):
+        raise HTTPException(403, "You cannot request books from a blocked user.")
     created_request = exchanges.create_request(db, request.book_id, current_user.id)
 
     return {
@@ -825,8 +942,70 @@ def admin_stats(
         "given_books": db.query(models.Book).filter_by(status="given").count(),
         "approved_requests": db.query(models.BookRequest).filter(
             models.BookRequest.status == "approved"
-        ).count()
+        ).count(),
+        "open_reports": db.query(models.Report).filter_by(status="open").count(),
+        "hidden_books": db.query(models.Book).filter_by(moderation_status="hidden").count(),
+        "suspended_users": db.query(models.User).filter_by(account_status="suspended").count(),
     }
+
+
+@app.get("/admin/reports")
+def admin_reports(_admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    reports = db.query(models.Report).order_by(models.Report.created_at.desc()).all()
+    return [{
+        "id": report.id, "type": report.report_type, "reason": report.reason, "note": report.note,
+        "status": report.status, "created_at": report.created_at, "book_id": report.book_id,
+        "reported_user_id": report.reported_user_id,
+        "reporter": {"id": reporter.id, "name": reporter.name, "email": reporter.email},
+        "reported_user": ({"id": target.id, "name": target.name, "email": target.email} if target else None),
+        "book": ({"id": book.id, "title": book.title, "moderation_status": book.moderation_status} if book else None),
+    } for report in reports for reporter, target, book in [(
+        crud.get_user_by_id(db, report.reporter_id), crud.get_user_by_id(db, report.reported_user_id),
+        crud.get_book_by_id(db, report.book_id) if report.book_id else None)]]
+
+
+@app.patch("/admin/reports/{report_id}")
+def review_report(report_id: int, update: ModerationUpdate, admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    report = db.query(models.Report).filter_by(id=report_id).first()
+    if not report:
+        raise HTTPException(404, "Report not found.")
+    report.status = update.status; report.reviewed_by_id = admin.id
+    from datetime import datetime, timezone
+    report.reviewed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    audit(db, admin.id, f"report_{update.status}", "report", report.id)
+    db.commit()
+    return {"report_id": report.id, "status": report.status}
+
+
+@app.patch("/admin/books/{book_id}/moderation")
+def moderate_book(book_id: int, update: BookModerationUpdate, admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    book = crud.get_book_by_id(db, book_id)
+    if not book:
+        raise HTTPException(404, "Book not found.")
+    book.moderation_status = update.status
+    audit(db, admin.id, "book_hidden" if update.status == "hidden" else "book_restored", "book", book.id)
+    db.commit()
+    return {"book_id": book.id, "moderation_status": book.moderation_status}
+
+
+@app.patch("/admin/users/{user_id}/status")
+def moderate_user(user_id: int, update: AccountStatusUpdate, admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    user = crud.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(404, "User not found.")
+    if user.id == admin.id:
+        raise HTTPException(400, "Admins cannot change their own account status.")
+    user.account_status = update.status
+    audit(db, admin.id, "user_suspended" if update.status == "suspended" else "user_reactivated", "user", user.id)
+    db.commit()
+    return {"user_id": user.id, "account_status": user.account_status}
+
+
+@app.get("/admin/audit")
+def admin_audit(_admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    return [{"id": item.id, "admin_user_id": item.admin_user_id, "action_type": item.action_type,
+             "target_type": item.target_type, "target_id": item.target_id, "created_at": item.created_at}
+            for item in db.query(models.AdminAuditLog).order_by(models.AdminAuditLog.id.desc()).limit(100).all()]
 
 
 @app.patch("/profile")
@@ -986,6 +1165,7 @@ def send_message(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    ensure_active(current_user)
     if current_user.id == message_data.receiver_id:
 
         raise HTTPException(
@@ -996,6 +1176,10 @@ def send_message(
     receiver = crud.get_user_by_id(db, message_data.receiver_id)
     if not receiver:
         raise HTTPException(status_code=404, detail="Recipient not found.")
+    if receiver.account_status != "active":
+        raise HTTPException(status_code=403, detail="Messaging is not available for this account.")
+    if users_are_blocked(db, current_user.id, receiver.id):
+        raise HTTPException(status_code=403, detail="Messaging is unavailable because one of you has blocked the other.")
 
     created_message = crud.create_message(
         db,
@@ -1039,7 +1223,8 @@ def get_message_users(
         user_id
     )
 
-    return users
+    return [{"id": user.id, "name": user.name, "grade": user.grade, "section": user.section}
+            for user in users]
 
 @app.get("/messages/preview")
 def get_last_message(

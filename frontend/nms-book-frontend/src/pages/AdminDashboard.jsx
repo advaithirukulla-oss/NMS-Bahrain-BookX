@@ -26,12 +26,18 @@ const STAT_ITEMS = [
   { key: "reserved_books", label: "Reserved Books", icon: FaLock },
   { key: "pending_requests", label: "Pending Requests", icon: FaClock },
   { key: "approved_requests", label: "Accepted Exchanges", icon: FaCheckCircle },
+  { key: "open_reports", label: "Open Reports", icon: FaClock },
+  { key: "hidden_books", label: "Hidden Books", icon: FaBook },
+  { key: "suspended_users", label: "Suspended Users", icon: FaLock },
 ];
 
 function AdminDashboard({ onBack }) {
   const { demoMode } = useUser();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
+  const [reports, setReports] = useState([]);
+
+  const loadReports = () => API.get("/admin/reports").then(({ data }) => setReports(data)).catch(() => {});
 
   useEffect(() => {
     if (demoMode) {
@@ -43,7 +49,12 @@ function AdminDashboard({ onBack }) {
       .catch((requestError) => {
         setError(requestError.response?.data?.detail || "Could not load admin statistics.");
       });
+    loadReports();
   }, [demoMode]);
+
+  async function updateReport(id, status) { await API.patch(`/admin/reports/${id}`, { status }); loadReports(); }
+  async function moderateBook(id, status) { await API.patch(`/admin/books/${id}/moderation`, { status }); loadReports(); }
+  async function moderateUser(id, status) { await API.patch(`/admin/users/${id}/status`, { status }); loadReports(); }
 
   return (
     <div className="page utility-page">
@@ -65,6 +76,7 @@ function AdminDashboard({ onBack }) {
           ))}
         </section>
       )}
+      {!demoMode && <section className="moderation-queue" aria-label="Moderation queue"><h2>Moderation queue</h2>{reports.filter((report) => report.status === "open").length === 0 && <p className="empty-state">No open reports.</p>}{reports.filter((report) => report.status === "open").map((report) => <article className="moderation-card" key={report.id}><div><strong>{report.type === "book" ? "Book report" : "User report"}: {report.reason.replaceAll("_", " ")}</strong><p>{report.book?.title || report.reported_user?.name || "Unavailable target"}</p><small>Reported by {report.reporter.name} · {new Date(report.created_at).toLocaleString()}</small>{report.note && <p className="moderation-note">Note: {report.note}</p>}</div><div className="moderation-controls"><button type="button" onClick={() => updateReport(report.id, "reviewed")}>Mark reviewed</button><button type="button" onClick={() => updateReport(report.id, "dismissed")}>Dismiss</button>{report.book && <button type="button" onClick={() => moderateBook(report.book.id, report.book.moderation_status === "hidden" ? "active" : "hidden")}>{report.book.moderation_status === "hidden" ? "Restore book" : "Hide book"}</button>}{report.reported_user && <button type="button" onClick={() => moderateUser(report.reported_user.id, "suspended")}>Suspend user</button>}</div></article>)}</section>}
     </div>
   );
 }

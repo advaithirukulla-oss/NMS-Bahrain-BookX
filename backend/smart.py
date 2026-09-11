@@ -70,7 +70,7 @@ def intent(text):
 
 def find_books(db, user, data):
     parsed = intent(data.query)
-    query = db.query(models.Book).filter(models.Book.owner_id != user.id)
+    query = db.query(models.Book).filter(models.Book.owner_id != user.id, models.Book.moderation_status == 'active')
     if parsed['grade']: query = query.filter(models.Book.grade == parsed['grade'])
     if parsed['availability'] == 'available': query = query.filter(models.Book.status == 'available')
     elif parsed['availability'] == 'unavailable': query = query.filter(models.Book.status.in_(['reserved', 'given']))
@@ -78,10 +78,10 @@ def find_books(db, user, data):
         query = query.filter(or_(*[func.lower(models.Book.subject).contains(alias, autoescape=True) for alias in SUBJECTS[parsed['subject']]]))
     signals = []
     if parsed['signal'] == 'saved':
-        signals = db.query(models.Book).join(models.SavedBook).filter(models.SavedBook.user_id == user.id).all()
+        signals = db.query(models.Book).join(models.SavedBook).filter(models.SavedBook.user_id == user.id, models.Book.moderation_status == 'active').all()
     elif parsed['signal'] == 'recent':
         # IDs are client-supplied catalogue references, never evidence about other users.
-        signals = db.query(models.Book).filter(models.Book.id.in_(data.recent_ids)).all()
+        signals = db.query(models.Book).filter(models.Book.id.in_(data.recent_ids), models.Book.moderation_status == 'active').all()
     signal_subjects = {b.subject.lower() for b in signals}
     if parsed['signal']:
         if signal_subjects: query = query.filter(func.lower(models.Book.subject).in_(signal_subjects))

@@ -106,3 +106,35 @@ class MessageCreate(BaseModel):
     @classmethod
     def strip_message(cls, value: str):
         return value.strip()
+
+
+REPORT_BOOK_REASONS = {"wrong_details", "inappropriate_image", "spam", "not_school_related", "already_exchanged", "other"}
+REPORT_USER_REASONS = {"inappropriate_messages", "spam", "harassment", "fake_listings", "unsafe_behavior", "other"}
+
+
+class ReportCreate(BaseModel):
+    reason: str = Field(min_length=3, max_length=50)
+    note: str | None = Field(default=None, max_length=300)
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str):
+        return value.strip().lower()
+
+    @field_validator("note")
+    @classmethod
+    def normalize_note(cls, value: str | None):
+        value = value.strip() if value else None
+        return value or None
+
+
+class ModerationUpdate(BaseModel):
+    status: str = Field(pattern=r"^(reviewed|dismissed|action_taken)$")
+
+
+class AccountStatusUpdate(BaseModel):
+    status: str = Field(pattern=r"^(active|suspended)$")
+
+
+class BookModerationUpdate(BaseModel):
+    status: str = Field(pattern=r"^(active|hidden)$")
