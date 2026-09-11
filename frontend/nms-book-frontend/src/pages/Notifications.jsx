@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FaBell, FaBook, FaCheckCircle, FaComment, FaTimesCircle } from "react-icons/fa";
+import { eventDate } from "../utils/exchanges";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { getDemoNotifications } from "../data/DemoData";
@@ -10,10 +11,6 @@ const ICONS = {
   new_message: FaComment,
   new_request: FaBook,
 };
-
-function formatTime(value) {
-  return new Intl.DateTimeFormat("en-BH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-}
 
 function Notifications({ onBack, onNavigate }) {
   const { user, demoMode } = useUser();
@@ -54,7 +51,7 @@ function Notifications({ onBack, onNavigate }) {
           return (
             <article className={`notification-card ${notification.type} ${notification.is_unread ? "unread" : ""}`} key={notification.id}>
               <div className="notification-icon"><Icon aria-hidden="true" /></div>
-              <div><strong>{notification.title}</strong><p>{notification.message}</p><time>{formatTime(notification.created_at)}</time>{notification.target && <button type="button" className="back-link" onClick={() => onNavigate(notification.target, notification)}>{notification.target === "messages" ? "Open conversation" : "View request"}</button>}</div>
+              <div><strong>{notification.title}</strong><p>{notification.message}</p><time>{eventDate(notification.created_at)}</time>{notification.target && <button type="button" className="back-link" onClick={() => onNavigate(notification.target, notification)}>{notification.target === "messages" ? "Open conversation" : "View request"}</button>}</div>
               {notification.is_unread && <span className="notification-dot" aria-label="Unread" />}
             </article>
           );

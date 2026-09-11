@@ -14,6 +14,10 @@ import { useUser } from "../context/UserContext";
 import { getDemoAdminStats } from "../data/DemoData";
 
 const STAT_ITEMS = [
+  { key: "completed_requests", label: "Completed Exchanges", icon: FaCheckCircle },
+  { key: "declined_requests", label: "Declined Requests", icon: FaClock },
+  { key: "cancelled_requests", label: "Cancelled Requests", icon: FaClock },
+  { key: "given_books", label: "Books Given", icon: FaBook },
   { key: "total_users", label: "Total Users", icon: FaUsers },
   { key: "total_books", label: "Total Books", icon: FaBook },
   { key: "total_requests", label: "Total Requests", icon: FaExchangeAlt },
@@ -21,7 +25,7 @@ const STAT_ITEMS = [
   { key: "available_books", label: "Available Books", icon: FaBookOpen },
   { key: "reserved_books", label: "Reserved Books", icon: FaLock },
   { key: "pending_requests", label: "Pending Requests", icon: FaClock },
-  { key: "approved_requests", label: "Approved Requests", icon: FaCheckCircle },
+  { key: "approved_requests", label: "Accepted Exchanges", icon: FaCheckCircle },
 ];
 
 function AdminDashboard({ onBack }) {

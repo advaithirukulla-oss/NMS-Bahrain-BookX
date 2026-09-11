@@ -16,7 +16,7 @@ function formatSummaryTime(value) {
     : { month: "short", day: "numeric" }).format(date);
 }
 
-function Messages({ initialConversation }) {
+function Messages({ initialConversation, onNavigate }) {
   const { demoMode, user } = useUser();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(initialConversation || null);
@@ -51,7 +51,7 @@ function Messages({ initialConversation }) {
   }, [loadConversations]);
 
   if (selectedConversation) {
-    return <ChatConversation conversationUser={selectedConversation} onBack={() => {
+    return <ChatConversation key={selectedConversation.user_id} onNavigate={onNavigate} conversationUser={selectedConversation} onBack={() => {
       setSelectedConversation(null);
       loadConversations();
     }} />;

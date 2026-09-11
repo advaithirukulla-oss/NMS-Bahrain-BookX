@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FaArrowLeft, FaPaperPlane, FaUserCircle } from "react-icons/fa";
+import { BookCover } from "../components/BookCard";
+import { statusLabel } from "../utils/exchanges";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { formatGrade } from "../utils/grades";
@@ -13,13 +15,22 @@ function formatMessageTime(value) {
   }).format(new Date(value));
 }
 
-function ChatConversation({ conversationUser, onBack }) {
+function ChatConversation({ conversationUser, onBack, onNavigate }) {
   const { demoMode, user } = useUser();
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
   const endRef = useRef(null);
+  const [exchange, setExchange] = useState(null);
+  useEffect(() => {
+    if (!conversationUser.exchange_id || demoMode) return;
+    let live = true;
+    API.get(`/exchanges/${conversationUser.exchange_id}`).then(({ data }) => {
+      if (live && [data.owner.id, data.requester.id].includes(user.id) && [data.owner.id, data.requester.id].includes(conversationUser.user_id)) setExchange(data);
+    }).catch(() => { if (live) setExchange(null); });
+    return () => { live = false; };
+  }, [conversationUser.exchange_id, conversationUser.user_id, demoMode, user.id]);
 
   const loadConversation = useCallback(async () => {
     if (demoMode) {
@@ -55,7 +66,7 @@ function ChatConversation({ conversationUser, onBack }) {
   }, [loadConversation]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    endRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
   }, [messages]);
 
   const sendMessage = async (event) => {
@@ -96,10 +107,11 @@ function ChatConversation({ conversationUser, onBack }) {
         <FaUserCircle aria-hidden="true" />
         <div>
           <strong>{conversationUser.name}</strong>
-          <span>{formatGrade(conversationUser.grade)} | {conversationUser.section}</span>
+          <span>{conversationUser.grade ? `${formatGrade(conversationUser.grade)} | ${conversationUser.section || ""}` : "Coordinate inside BookSpins"}</span>
         </div>
       </header>
 
+      {exchange && <aside className="exchange-chat-context"><div className="book-thumb"><BookCover book={exchange.book} /></div><div><strong>{exchange.book.title}</strong><p>{statusLabel(exchange.status)} · Exchange with {conversationUser.name}</p><button type="button" className="back-link" onClick={() => onNavigate(exchange.owner.id === user.id ? "my-books" : "requests", { book_id: exchange.book.id, request_id: exchange.id })}>View exchange</button></div></aside>}
       <main className="message-thread">
         {error && <p className="form-message error" role="alert">{error}</p>}
         {messages.length === 0 && !error && <p className="empty-state">Start the conversation.</p>}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FaBookOpen, FaBookmark, FaRegBookmark } from "react-icons/fa";
+import { statusLabel } from "../utils/exchanges";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
 import { useDiscovery } from "../context/DiscoveryContext";
@@ -29,7 +30,7 @@ function RequestButton({ book, onRequested, existingRequest }) {
     setPending(true);
     try {
       if (!demoMode) await API.post("/requests", { book_id: book.id });
-      setSent(true); setMessage(demoMode ? "Demo request created." : "Your request has been sent.");
+      setSent(true); setMessage(demoMode ? "Demo request created." : "Request sent. Track it in Requests.");
       onRequested?.();
     } catch (error) { setMessage(error.response?.data?.detail || "Could not request this book."); }
     finally { setPending(false); }
@@ -62,12 +63,12 @@ export function BookDetails({ book, onClose }) {
     // Open once; context changes must not reopen the dialog or repeat history writes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book.id, demoMode]);
-  const labels = { pending: "Requested", approved: "Accepted", rejected: "Declined" };
+
   return <dialog ref={dialog} className="discovery-dialog" aria-labelledby={`detail-${book.id}`} onCancel={onClose} onClick={(event) => { if (event.target === dialog.current) onClose(); }}>
     <button type="button" className="dialog-close" aria-label="Close book details" onClick={onClose}>×</button>
     <div className="dialog-image"><BookCover book={current} /></div>
-    <div className="book-detail-copy"><h2 id={`detail-${book.id}`}>{current.title}</h2><p>{current.author || "Author not provided"}</p><div className="detail-chips"><span>{current.subject}</span><span>{formatGrade(current.grade)}</span><span>{current.condition}</span><span>{current.status}</span></div><p>{current.description}</p>
-      {error ? <p role="alert">{error}</p> : !ready ? <p role="status">Checking availability…</p> : <><SaveButton book={current} /><RequestButton book={current} existingRequest={activity.length > 0} onRequested={() => setActivity((items) => [{ status: "pending" }, ...items])} /><h3>Book activity</h3><ul><li>Listed</li>{activity.map((item, index) => <li key={index}>{labels[item.status] || item.status}</li>)}</ul></>}
+    <div className="book-detail-copy"><h2 id={`detail-${book.id}`}>{current.title}</h2><p>{current.author || "Author not provided"}</p><div className="detail-chips"><span>{current.subject}</span><span>{formatGrade(current.grade)}</span><span>{current.condition}</span><span>{statusLabel(current.status)}</span></div><p>{current.description}</p>
+      {error ? <p role="alert">{error}</p> : !ready ? <p role="status">Checking availability…</p> : <><SaveButton book={current} /><RequestButton book={current} existingRequest={activity.some(item => item.status !== "cancelled")} onRequested={() => setActivity((items) => [{ status: "pending" }, ...items])} /><h3>Book activity</h3><ul><li>Listed</li>{activity.map((item, index) => <li key={index}>{statusLabel(item.status)}</li>)}</ul></>}
     </div>
   </dialog>;
 }
@@ -75,7 +76,7 @@ export default function BookCard({ book, shelf = false, reason }) {
   const [open, setOpen] = useState(false);
   return <article className={shelf ? "home-book discovery-book" : "compact-book-card discovery-book"}>
     <button type="button" className={shelf ? "home-cover book-open" : "book-thumb book-open"} aria-label={`Open ${book.title}`} onClick={() => setOpen(true)}><BookCover book={book} /></button>
-    <div className="discovery-copy"><button className="book-title" type="button" onClick={() => setOpen(true)}>{book.title}</button><p>{book.author || "Author not provided"}</p><small>{book.subject} · {formatGrade(book.grade)}</small><p className={`status-pill ${book.status}`}>{book.status}</p>{reason && <p className="recommendation-reason">{reason}</p>}<SaveButton book={book} /><button type="button" className="back-link" onClick={() => setOpen(true)}>Open details</button></div>
+    <div className="discovery-copy"><button className="book-title" type="button" onClick={() => setOpen(true)}>{book.title}</button><p>{book.author || "Author not provided"}</p><small>{book.subject} · {formatGrade(book.grade)}</small><p className={`status-pill ${book.status}`}>{statusLabel(book.status)}</p>{reason && <p className="recommendation-reason">{reason}</p>}<SaveButton book={book} /><button type="button" className="back-link" onClick={() => setOpen(true)}>Open details</button></div>
     {open && <BookDetails book={book} onClose={() => setOpen(false)} />}
   </article>;
 }

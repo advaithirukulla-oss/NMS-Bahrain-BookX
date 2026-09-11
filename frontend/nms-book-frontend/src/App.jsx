@@ -97,13 +97,13 @@ function App() {
     if (activeTab === "take") return <Take />;
     if (activeTab === "give") return <Give />;
     if (activeTab === "find") return <Find />;
-    if (activeTab === "messages") return <Messages initialConversation={destination?.conversation} />;
+    if (activeTab === "messages") return <Messages onNavigate={navigate} initialConversation={destination?.conversation} />;
     if (activeTab === "ai") return <AIBookFinder onBack={() => navigate("profile")} />;
     if (activeTab === "admin") return <AdminDashboard onBack={() => navigate("profile")} />;
     if (activeTab === "leaderboard") return <Leaderboard onBack={() => navigate("profile")} />;
     if (activeTab === "terms") return <Terms onBack={() => navigate("profile")} />;
-    if (activeTab === "requests") return <RequestsPage selectedRequestId={destination?.request_id} onBack={() => navigate("profile")} />;
-    if (activeTab === "my-books") return <MyBooks selectedBookId={destination?.book_id} onBack={() => navigate("profile")} />;
+    if (activeTab === "requests") return <RequestsPage onNavigate={navigate} selectedRequestId={destination?.request_id} onBack={() => navigate("profile")} />;
+    if (activeTab === "my-books") return <MyBooks onNavigate={navigate} selectedBookId={destination?.book_id} onBack={() => navigate("profile")} />;
     if (activeTab === "notifications") return <Notifications onNavigate={navigate} onBack={() => navigate("profile")} />;
     return <Home onNavigate={navigate} />;
   }, [activeTab, navigate, notificationCount, destination]);
@@ -117,7 +117,7 @@ function App() {
   }
 
   return (
-    <DiscoveryProvider><div className="app" data-version="2.1">
+    <DiscoveryProvider><div className="app" data-version="2.2">
       <header className="app-topbar">
         <button className="brand-lockup" type="button" onClick={() => navigate("home")} aria-label="Go to BookSpins home">
           <span className="brand-mark"><FaBookOpen aria-hidden="true" /></span>

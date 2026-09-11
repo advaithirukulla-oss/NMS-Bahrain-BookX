@@ -24,6 +24,36 @@
   --nav-height: 76px;
 }
 
+/* 2.2 extends the established BookSpins exchange cards and motion. */
+.exchange-tabs, .exchange-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.exchange-tabs button, .exchange-actions button { min-height: 44px; padding: 10px 16px; border-radius: 12px; white-space: normal; }
+.exchange-tabs button { flex: 1; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+.exchange-tabs button[aria-pressed="true"] { background: var(--forest, #173f32); color: white; }
+.secondary-btn { border: 1px solid var(--line); background: var(--card); color: var(--text); }
+.exchange-card { min-width: 0; overflow-wrap: anywhere; }
+.exchange-card .request-card-heading { flex-wrap: wrap; gap: 12px; }
+.exchange-card .owner-book-summary { flex: 1 1 210px; min-width: 0; }
+.exchange-card .owner-book-summary > div:last-child { min-width: 0; }
+.exchange-card .book-thumb { flex-shrink: 0; }
+.exchange-note { padding: 12px 16px; border-radius: 12px; background: #edf5ee; color: #204b34; line-height: 1.6; }
+.exchange-timeline { padding: 0 0 0 18px; margin: 18px 0; border-left: 2px solid #c5d8c8; list-style: none; }
+.exchange-timeline li { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0; font-size: 13px; }
+.exchange-timeline time { color: var(--muted); }
+.status-pill.completed, .status-pill.given { background: #e0f0df; color: #22542d; }
+.status-pill.cancelled { background: #f1eee7; color: #625b50; }
+.exchange-dialog { width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid #ddd9ce; border-radius: 24px; padding: 28px; background: #fffdf8; color: var(--text); box-shadow: var(--shadow); }
+.exchange-dialog::backdrop { background: rgb(12 29 20 / .55); }
+.exchange-dialog h2 { font-size: clamp(22px, 4vw, 28px); line-height: 1.2; }
+.second-spin { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 20px; background: #e0f0df; color: #22542d; font-size: 30px; }
+.second-spin.complete { animation: second-spin .65s ease-out both; }
+@keyframes second-spin { from { transform: perspective(300px) rotateY(-70deg); opacity: .3; } to { transform: perspective(300px) rotateY(0); opacity: 1; } }
+.exchange-chat-context { display: flex; gap: 12px; padding: 12px 18px; background: #edf5ee; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.exchange-chat-context > div:last-child { min-width: 0; }
+.exchange-chat-context .book-thumb { width: 42px; height: 54px; flex-shrink: 0; }
+.exchange-chat-context p { margin: 5px 0; font-size: 13px; }
+@media (max-width: 430px) { .exchange-card { padding: 16px; } .exchange-actions button { flex: 1 1 120px; } .exchange-dialog { padding: 20px; } }
+@media (prefers-reduced-motion: reduce) { .second-spin.complete { animation: none; } }
+
 * {
   box-sizing: border-box;
 }

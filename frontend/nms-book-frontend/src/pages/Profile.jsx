@@ -77,7 +77,7 @@ function Profile({ notificationCount, onNavigate }) {
   const chartItems = [
     { label: "Posted", value: profile.books_posted ?? 0 },
     { label: "Requested", value: profile.books_requested ?? 0 },
-    { label: "Approved", value: profile.books_approved ?? 0 },
+    { label: "Accepted", value: profile.books_approved ?? 0 },
   ];
   const dailyQuote = getDailyBookQuote();
   const startProfileEdit = () => {
@@ -178,10 +178,15 @@ function Profile({ notificationCount, onNavigate }) {
           <section className="stats-grid profile-stats" aria-label="Dashboard statistics">
             <article className="stat-card"><FaBook /><strong>{profile.books_posted ?? 0}</strong><span>Books Posted</span></article>
             <article className="stat-card"><FaHandPaper /><strong>{profile.books_requested ?? 0}</strong><span>Requested</span></article>
-            <article className="stat-card"><FaClipboardList /><strong>{profile.books_approved ?? 0}</strong><span>Approved</span></article>
+            <article className="stat-card"><FaClipboardList /><strong>{profile.books_approved ?? 0}</strong><span>Accepted</span></article>
             <article className="stat-card"><FaStar /><strong>{profile.trust_points ?? 0}</strong><span>Trust Points</span></article>
           </section>
 
+          {!demoMode && <section className="stats-grid profile-stats" aria-label="Completed contributions">
+            <article className="stat-card"><FaBook /><strong>{profile.books_given ?? 0}</strong><span>Books Given</span></article>
+            <article className="stat-card"><FaHandPaper /><strong>{profile.books_received ?? 0}</strong><span>Books Received</span></article>
+            <article className="stat-card"><FaClipboardList /><strong>{profile.completed_exchanges ?? 0}</strong><span>Completed Exchanges</span></article>
+          </section>}
           <section className="analytics-card">
             <h2><FaChartBar /> Exchange Activity</h2>
             {chartItems.map((item) => (

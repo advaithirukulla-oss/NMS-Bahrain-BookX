@@ -1,91 +1,39 @@
 import { useCallback, useEffect, useState } from "react";
-import { FaClipboardList, FaTimes } from "react-icons/fa";
 import API from "../api/api";
 import { useUser } from "../context/UserContext";
-import { getDemoUserRequests } from "../data/DemoData";
+import { getDemoUserRequests, getDemoOwnerBooks } from "../data/DemoData";
+import ExchangeCard from "../components/ExchangeCard";
 
-function formatDate(value) {
-  return new Intl.DateTimeFormat("en-BH", { dateStyle: "medium" }).format(new Date(value));
-}
-
-function RequestsPage({ onBack, selectedRequestId }) {
+export default function RequestsPage({ onBack, onNavigate, selectedRequestId }) {
   const { user, demoMode } = useUser();
-  const [requests, setRequests] = useState([]);
+  const [mine, setMine] = useState([]);
+  const [incoming, setIncoming] = useState([]);
+  const [tab, setTab] = useState("mine");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-
-  const loadRequests = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
-
-    if (demoMode) {
-      setRequests(getDemoUserRequests());
-      setIsLoading(false);
-      return;
-    }
-
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
     try {
-      const response = await API.get(`/requests/user/${user.id}`);
-      setRequests(response.data);
-    } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Could not load your requests.");
-    } finally {
-      setIsLoading(false);
-    }
+      const [requests, books] = demoMode ? [getDemoUserRequests(), getDemoOwnerBooks()] : await Promise.all([
+        API.get(`/requests/user/${user.id}`).then(r => r.data), API.get(`/books/owner/${user.id}/requests`).then(r => r.data),
+      ]);
+      setMine(requests); setIncoming(books.flatMap(book => book.requests.map(request => ({ ...request, book })))); setError("");
+    } catch (failure) { setError(failure.response?.data?.detail || "Could not load exchanges."); }
+    finally { setLoading(false); }
   }, [demoMode, user.id]);
-
   useEffect(() => {
-    const timeout = setTimeout(loadRequests, 0);
-    return () => clearTimeout(timeout);
-  }, [loadRequests]);
-
-  useEffect(() => { if (!isLoading && selectedRequestId) document.getElementById(`request-${selectedRequestId}`)?.focus(); }, [isLoading, selectedRequestId]);
-
-  const cancelRequest = async (requestId) => {
-    if (demoMode) {
-      setRequests((current) => current.filter((request) => request.id !== requestId));
-      return;
-    }
-
-    try {
-      await API.delete(`/requests/${requestId}`);
-      setRequests((current) => current.filter((request) => request.id !== requestId));
-    } catch (requestError) {
-      setError(requestError.response?.data?.detail || "Could not cancel this request.");
-    }
-  };
-
-  return (
-    <div className="page utility-page">
-      <button className="back-link" type="button" onClick={onBack}>Back to Profile</button>
-      <header className="page-heading">
-        <div><p className="eyebrow">Request management</p><h1>My Requests</h1></div>
-        <FaClipboardList aria-hidden="true" />
-      </header>
-
-      {isLoading && <p className="status-card">Loading requests...</p>}
-      {error && <p className="status-card error" role="alert">{error}</p>}
-      {!isLoading && requests.length === 0 && <p className="empty-state">You have not requested any books yet.</p>}
-
-      <section className="request-list">
-        {requests.map((request) => (
-          <article className="request-card" id={`request-${request.id}`} tabIndex={-1} key={request.id}>
-            <div className="request-card-heading">
-              <h2>{request.book_title}</h2>
-              <span className={`status-pill ${request.status}`}>{request.status}</span>
-            </div>
-            <p><strong>Owner:</strong> {request.owner_name}</p>
-            <p><strong>Requested:</strong> {formatDate(request.request_date)}</p>
-            {request.status === "pending" && (
-              <button className="danger-outline-btn" type="button" onClick={() => cancelRequest(request.id)}>
-                <FaTimes aria-hidden="true" /> Cancel Request
-              </button>
-            )}
-          </article>
-        ))}
-      </section>
-    </div>
-  );
+    const timeout = setTimeout(load, 0);
+    const interval = setInterval(load, 10000);
+    window.addEventListener("focus", load);
+    return () => { clearTimeout(timeout); clearInterval(interval); window.removeEventListener("focus", load); };
+  }, [load]);
+  useEffect(() => { if (!loading && selectedRequestId) document.getElementById(`request-${selectedRequestId}`)?.focus(); }, [loading, selectedRequestId]);
+  const rows = tab === "mine" ? mine : incoming;
+  return <div className="page utility-page">
+    <button type="button" className="back-link" onClick={onBack}>Back to Profile</button>
+    <header className="page-heading"><div><p className="eyebrow">From request to second spin</p><h1>Exchanges</h1></div></header>
+    <div className="exchange-tabs" aria-label="Exchange view">{[["mine", "Requested by Me"], ["incoming", "Requests for My Books"]].map(([value, label]) => <button type="button" aria-pressed={tab === value} key={value} onClick={() => setTab(value)}>{label}</button>)}</div>
+    {loading && <p role="status">Loading exchanges…</p>}{error && <p role="alert">{error}</p>}
+    {!loading && !error && rows.length === 0 && <p className="empty-state">No exchanges here yet.</p>}
+    <section className="request-list">{rows.map(request => <ExchangeCard key={request.id} request={request} owner={tab === "incoming"} book={request.book || { id: request.book_id, title: request.book_title, image_url: request.image_url }} onRefresh={load} onNavigate={onNavigate} />)}</section>
+  </div>;
 }
-
-export default RequestsPage;
